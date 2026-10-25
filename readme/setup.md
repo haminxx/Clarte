@@ -153,9 +153,9 @@ That edit **[needs key]**. Do not commit `.env.local`.
 
 In Google Cloud project "PABER", create a Web application OAuth client.
 
-- Authorized redirect URIs: `https://clarte.io/auth/callback/google` and `http://localhost:8787/auth/callback/google`
+- Authorized redirect URIs: `https://api.clarte.io/auth/callback/google` and `http://localhost:8787/auth/callback/google`
 - Authorized JavaScript origin: `https://clarte.io`
-- Until DNS is live, also add the `*.workers.dev` callback you are actually calling, then switch `GOOGLE_REDIRECT_URI` to `https://clarte.io/auth/callback/google` when the zone is active
+- The site is a static export, so `https://clarte.io/auth/callback/google` 404s. Keep `GOOGLE_REDIRECT_URI` on the API host.
 
 The client secret from that page is the value for the `GOOGLE_CLIENT_SECRET` command above.
 
@@ -322,7 +322,7 @@ ALLOWED_ORIGINS = "http://localhost:3000,https://clarte.io,https://www.clarte.io
 Both `[[routes]]` blocks are committed commented out. `custom_domain = true` fails while the zone is
 not on the account. After they succeed, set `NEXT_PUBLIC_CLARTE_API=https://api.clarte.io`, set the
 Vapi tool URL to `https://api.clarte.io/vapi/tools`, set `GOOGLE_REDIRECT_URI` to
-`https://clarte.io/auth/callback/google`, rebuild the site, and redeploy Pages.
+`https://api.clarte.io/auth/callback/google`, rebuild the site, and redeploy Pages.
 
 Wrangler creates the Worker DNS records. Do not pre-create CNAMEs for `api` and `mcp`.
 
