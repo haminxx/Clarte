@@ -77,6 +77,11 @@ into `mentions`, and returns the result. The browser sends it back as a `functio
 and only after every outstanding call has answered does it send one `response.create` — the documented
 requirement for parallel tool calls.
 
+**The idea card.** `POST /api/session/:id/idea-draft` takes the transcript and the ids of the evidence
+on screen, has Gemma 4 write the card, stores it in `sessions.idea_json`, and returns it. If Gemma is
+unavailable the Worker assembles the card from the first and last user turns and says so in the risk
+field, so a demo never ends on an error.
+
 **Highlighting.** Two paths, on purpose. The voice path sets highlights directly from the tool
 response. The website also polls `/api/session/:id/mentions?since=<seq>`, so a tool call made from
 anywhere else — an MCP client, `curl`, a second tab — still lights up the graph.

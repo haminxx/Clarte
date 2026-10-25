@@ -9,7 +9,13 @@ const STAGES: { id: Stage; label: string; hint: string }[] = [
   { id: "debate", label: "Debate", hint: "Defend it against prior art" },
 ];
 
-export default function StageBar({ stage }: { stage: Stage }) {
+interface Props {
+  stage: Stage;
+  /** The coach normally advances the stage; this lets a presenter jump stages. */
+  onSelect?: (stage: Stage) => void;
+}
+
+export default function StageBar({ stage, onSelect }: Props) {
   const activeIndex = STAGES.findIndex((entry) => entry.id === stage);
 
   return (
@@ -17,12 +23,19 @@ export default function StageBar({ stage }: { stage: Stage }) {
       {STAGES.map((entry, index) => {
         const state = index === activeIndex ? "active" : index < activeIndex ? "done" : "upcoming";
         return (
-          <li key={entry.id} className={`stage ${state}`} aria-current={state === "active"}>
-            <span className="stage-index">{index + 1}</span>
-            <span className="stage-text">
-              <strong>{entry.label}</strong>
-              <em>{entry.hint}</em>
-            </span>
+          <li key={entry.id}>
+            <button
+              type="button"
+              className={`stage ${state}`}
+              aria-current={state === "active"}
+              onClick={() => onSelect?.(entry.id)}
+            >
+              <span className="stage-index">{index + 1}</span>
+              <span className="stage-text">
+                <strong>{entry.label}</strong>
+                <em>{entry.hint}</em>
+              </span>
+            </button>
           </li>
         );
       })}

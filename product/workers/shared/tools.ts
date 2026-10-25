@@ -2,8 +2,8 @@ import debatePrompt from "../../prompts/debate.md";
 import { getDocumentById, getDocumentsByIds, getNeighbours, keywordSearch, rowToDocument } from "./db";
 import { embedQuery } from "./embeddings";
 import type { Env } from "./env";
-import { gemmaJson, gemmaText, gemmaConfig, hasGemma } from "./gemma";
-import type { DebateResult, TechDocument } from "./types";
+import { gemmaConfig, gemmaJson, hasGemma } from "./gemma";
+import type { DebateResult, IdeaCard, TechDocument } from "./types";
 import type { ToolName } from "./tools-spec";
 
 /**
@@ -246,21 +246,59 @@ async function runDebate(env: Env, idea: string, documents: TechDocument[]): Pro
   };
 }
 
-/** Optional: Gemma writes the closing idea card from the transcript so far. */
-export async function summariseIdea(
+/**
+ * The closing artifact of a session (plan section 5, stage 3): Gemma 4 reads the
+ * transcript and writes the idea card. Falls back to the first and last user turns
+ * when Gemma is unavailable, so the demo always ends with a card.
+ */
+export async function draftIdeaCard(
   env: Env,
-  input: { transcript: string; evidence: TechDocument[] },
-): Promise<string> {
-  const config = gemmaConfig(env);
-  if (!hasGemma(config)) return "";
-  return gemmaText(config, {
-    instruction:
-      "Summarise this brainstorming session as an idea card: problem, root cause, solution, and the single biggest remaining risk. Two sentences maximum per field.",
-    input: `TRANSCRIPT:\n${input.transcript}\n\nEVIDENCE:\n${input.evidence
-      .map((document) => `${document.id} ${document.title}`)
-      .join("\n")}`,
-    maxOutputTokens: 600,
+  input: { transcript: { role: string; text: string }[]; evidenceIds: string[] },
+): Promise<IdeaCard> {
+  const evidenceRows = await getDocumentsByIds(env, input.evidenceIds.slice(0, 3));
+  const evidence = [...evidenceRows.values()].map((row) => {
+    const document = rowToDocument(row);
+    return { id: document.id, title: document.title, url: document.url };
   });
+
+  const userTurns = input.transcript.filter((entry) => entry.role === "user");
+  const fallback: IdeaCard = {
+    problem: userTurns[0]?.text ?? "Untitled problem",
+    rootCause: userTurns[userTurns.length - 1]?.text ?? "Not reached yet.",
+    solution:
+      input.transcript.filter((entry) => entry.role === "paber").slice(-1)[0]?.text ?? "Not stated yet.",
+    evidence,
+    risk: "Gemma 4 was unavailable, so this card is assembled from the transcript only.",
+  };
+
+  const config = gemmaConfig(env);
+  if (!hasGemma(config) || !input.transcript.length) return fallback;
+
+  try {
+    const result = await gemmaJson<Omit<IdeaCard, "evidence">>(config, {
+      instruction:
+        "You are writing the closing idea card for a brainstorming session. Return " +
+        '{"problem":"","rootCause":"","solution":"","risk":""}. One or two sentences per field, in the ' +
+        "user's own framing where possible. `risk` is the single biggest unresolved objection. " +
+        "Never invent evidence or numbers that are not in the transcript.",
+      input: `TRANSCRIPT:\n${input.transcript
+        .map((entry) => `${entry.role}: ${entry.text}`)
+        .join("\n")}\n\nEVIDENCE:\n${evidence.map((item) => `${item.id} ${item.title}`).join("\n")}`,
+      maxOutputTokens: 700,
+    });
+
+    if (!result?.problem) return fallback;
+    return {
+      problem: result.problem,
+      rootCause: result.rootCause || fallback.rootCause,
+      solution: result.solution || fallback.solution,
+      risk: result.risk || fallback.risk,
+      evidence,
+    };
+  } catch (error) {
+    console.warn("Gemma idea card failed", { error: String(error) });
+    return fallback;
+  }
 }
 
 export async function runTool(env: Env, name: ToolName, args: Record<string, unknown>): Promise<ToolResult> {

@@ -64,6 +64,18 @@ export function saveIdeaCard(sessionId: string, card: IdeaCardData): Promise<unk
   });
 }
 
+/** Ask Gemma 4 to write the closing card from the transcript and store it. */
+export function draftIdeaCard(
+  sessionId: string,
+  transcript: { role: string; text: string }[],
+  evidenceIds: string[],
+): Promise<{ card: IdeaCardData }> {
+  return request<{ card: IdeaCardData }>(
+    `/api/session/${encodeURIComponent(sessionId)}/idea-draft`,
+    { method: "POST", body: JSON.stringify({ transcript, evidenceIds }) },
+  );
+}
+
 export interface MentionsResponse {
   sessionId: string;
   stage: Stage;

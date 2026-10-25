@@ -115,14 +115,25 @@ code {
   pointer-events: auto;
 }
 
+.stage-bar li {
+  display: flex;
+}
+
 .stage {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.4rem 0.85rem;
+  border: none;
   border-radius: 999px;
+  background: none;
+  text-align: left;
   color: var(--muted);
   transition: background 200ms ease, color 200ms ease;
+}
+
+.stage:hover {
+  background: rgba(120, 150, 220, 0.12);
 }
 
 .stage-index {

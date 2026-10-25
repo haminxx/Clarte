@@ -49,7 +49,8 @@ The risk flagged in plan section 10 is xAI credits. If the mic is disabled, the 
 text box below it drives the identical tools:
 
 1. Type the problem → `search_tech` runs, nodes light up, the retrieved documents list fills in.
-2. Use the stage pill narration to walk through the three stages manually.
+2. Click a stage on the pill to move through the three stages yourself — the pill is clickable
+   precisely so a presenter is not stuck waiting for the coach to advance it.
 3. In the Debate stage the same box feeds `market_evidence`, so the cited objections still appear.
 4. "Make idea card" still produces the closing artifact.
 

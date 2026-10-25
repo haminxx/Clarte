@@ -32,7 +32,8 @@ Verified on this machine, with no API keys:
 | `website`: typecheck + static export | passes (`npm run build`) |
 | Ingest against the live public APIs | 46 records fetched, 40 unique, 200 edges, 43 cross-domain (`npm run ingest:dry`) |
 | D1 schema applied and loaded locally | 40 documents in local D1 |
-| `search_tech`, `find_related`, `market_evidence`, `/api/graph`, `/api/session`, mentions polling | all answer correctly against local D1 |
+| `search_tech`, `find_related`, `market_evidence`, `/api/graph`, `/api/session`, mentions polling, idea draft | all answer correctly against local D1 |
+| Website against the local API in a real browser | searched the library, lit up 9 nodes, moved through to the Debate stage, produced cited objections and an idea card |
 
 Not verifiable without keys: a live Grok Voice call, Gemma 4 output quality, real semantic (as opposed
 to keyword) search, and remote deploys. See [setup.md](setup.md#what-still-needs-christians-keys).

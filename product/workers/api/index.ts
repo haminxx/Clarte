@@ -11,7 +11,7 @@ import {
 } from "../shared/db";
 import type { Env } from "../shared/env";
 import { fail, json, preflight, readJson } from "../shared/http";
-import { runTool } from "../shared/tools";
+import { draftIdeaCard, runTool } from "../shared/tools";
 import { isToolName } from "../shared/tools-spec";
 import { STAGES, type IdeaCard, type Stage } from "../shared/types";
 import { mintEphemeralToken, realtimeUrl, sessionConfig } from "./voice";
@@ -24,6 +24,7 @@ import { mintEphemeralToken, realtimeUrl, sessionConfig } from "./voice";
  *   POST /api/session/:id/stage        move the stage pill (five_whys|why_how_what|debate)
  *   POST /api/session/:id/root-cause   record the stage 1 outcome
  *   POST /api/session/:id/idea         store the final idea card
+ *   POST /api/session/:id/idea-draft   have Gemma 4 write the card from the transcript
  *   GET  /api/session/:id              stage + root cause + idea card
  *   GET  /api/session/:id/mentions     highlight stream for the graph (?since=seq)
  *   GET  /api/graph                    nodes + links for the 3D constellation
@@ -124,6 +125,20 @@ export default {
           if (!body.card) return fail(env, request, "card is required");
           await setIdeaCard(env, sessionId, body.card);
           return json(env, request, { sessionId, card: body.card });
+        }
+
+        // Gemma 4 writes the closing card from the transcript, then it is stored.
+        if (action === "/idea-draft" && request.method === "POST") {
+          const body = await readJson<{
+            transcript?: { role: string; text: string }[];
+            evidenceIds?: string[];
+          }>(request);
+          const card = await draftIdeaCard(env, {
+            transcript: body.transcript ?? [],
+            evidenceIds: body.evidenceIds ?? [],
+          });
+          await setIdeaCard(env, sessionId, card);
+          return json(env, request, { sessionId, card });
         }
 
         if (!action && request.method === "GET") {

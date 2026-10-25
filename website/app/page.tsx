@@ -6,7 +6,14 @@ import IdeaCard from "@/components/IdeaCard";
 import StageBar from "@/components/StageBar";
 import TranscriptPanel from "@/components/TranscriptPanel";
 import VoiceButton from "@/components/VoiceButton";
-import { callTool, fetchGraph, fetchMentions, setStage as pushStage, startSession } from "@/lib/api";
+import {
+  callTool,
+  draftIdeaCard,
+  fetchGraph,
+  fetchMentions,
+  setStage as pushStage,
+  startSession,
+} from "@/lib/api";
 import type {
   GraphPayload,
   IdeaCardData,
@@ -23,9 +30,13 @@ const Graph3D = dynamic(() => import("@/components/Graph3D"), {
   loading: () => <div className="graph-loading">Loading the constellation…</div>,
 });
 
-/** Which stage a tool call implies, so the pill tracks the conversation. */
+const STAGE_ORDER: Stage[] = ["five_whys", "why_how_what", "debate"];
+
+/**
+ * Which stage a tool call implies. `search_tech` is used in every stage, so the
+ * pill only ever moves forward — a stage-2 search must not drag it back to 1.
+ */
 const STAGE_FOR_TOOL: Record<string, Stage> = {
-  search_tech: "five_whys",
   find_related: "why_how_what",
   market_evidence: "debate",
 };
@@ -101,7 +112,7 @@ export default function Home() {
       if (Array.isArray(response.objections)) setObjections(response.objections as Objection[]);
 
       const implied = STAGE_FOR_TOOL[name];
-      if (implied && implied !== stage) {
+      if (implied && STAGE_ORDER.indexOf(implied) > STAGE_ORDER.indexOf(stage)) {
         setStage(implied);
         void pushStage(activeSession, implied).catch(() => undefined);
       }
@@ -174,8 +185,25 @@ export default function Home() {
     [appendTranscript, handleToolCall, sessionId, stage, textQuery],
   );
 
-  const buildIdeaCard = useCallback(() => {
+  /** Gemma 4 writes the card server-side; the local assembly is the fallback. */
+  const buildIdeaCard = useCallback(async () => {
     const spoken = transcript.filter((entry) => entry.role !== "system");
+    const evidenceIds = documents.slice(0, 3).map((document) => document.id);
+
+    if (sessionId) {
+      try {
+        const { card } = await draftIdeaCard(
+          sessionId,
+          spoken.map((entry) => ({ role: entry.role, text: entry.text })),
+          evidenceIds,
+        );
+        setIdeaCard(card);
+        return;
+      } catch (error) {
+        setDetail(`Could not draft the card with Gemma: ${String(error)}`);
+      }
+    }
+
     setIdeaCard({
       problem: spoken.find((entry) => entry.role === "user")?.text ?? "Untitled problem",
       rootCause: spoken.filter((entry) => entry.role === "user").slice(-1)[0]?.text ?? "—",
@@ -187,7 +215,7 @@ export default function Home() {
       })),
       risk: objections[0]?.claim ?? "No prior art strong enough to object yet.",
     });
-  }, [documents, objections, transcript]);
+  }, [documents, objections, sessionId, transcript]);
 
   const nodeCount = useMemo(() => graph.nodes.length, [graph.nodes.length]);
 
@@ -212,7 +240,13 @@ export default function Home() {
             defend your idea.
           </p>
         </div>
-        <StageBar stage={stage} />
+        <StageBar
+          stage={stage}
+          onSelect={(next) => {
+            setStage(next);
+            if (sessionId) void pushStage(sessionId, next).catch(() => undefined);
+          }}
+        />
       </header>
 
       <TranscriptPanel transcript={transcript} documents={documents} />
@@ -235,7 +269,7 @@ export default function Home() {
         <div className="status-row">
           <span>{nodeCount} nodes loaded</span>
           {highlighted.length > 0 ? <span>{highlighted.length} lit up</span> : null}
-          <button type="button" className="ghost" onClick={buildIdeaCard}>
+          <button type="button" className="ghost" onClick={() => void buildIdeaCard()}>
             Make idea card
           </button>
         </div>
