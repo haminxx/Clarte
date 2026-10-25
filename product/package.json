@@ -2,7 +2,7 @@
   "name": "@clarte/product",
   "version": "0.1.0",
   "private": true,
-  "description": "Clarte service layer: MCP tool server, Grok Voice bridge API, D1 + Vectorize knowledge graph",
+  "description": "Clarte service layer: MCP tool server, Vapi tool bridge, D1 + Vectorize knowledge graph",
   "license": "MIT",
   "homepage": "https://clarte.io",
   "repository": {
@@ -26,6 +26,7 @@
     "ingest:dry": "tsx ingest/run.ts --dry-run --limit 40",
     "load": "tsx ingest/load.ts",
     "load:local": "tsx ingest/load.ts --local",
+    "vapi:setup": "tsx scripts/vapi-setup.ts",
     "types": "wrangler types --config wrangler.api.toml"
   },
   "dependencies": {

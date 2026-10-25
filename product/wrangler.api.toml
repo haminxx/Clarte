@@ -1,6 +1,7 @@
 #:schema node_modules/wrangler/config-schema.json
-# Clarte API / tool bridge Worker — plan section 6.1, layer 3.
-# Mints Grok Voice ephemeral tokens, executes tool calls, serves graph + mention data.
+# Clarte API Worker — plan section 6.1, layer 3.
+# Vapi tool webhook, Google OAuth, BYOK, Grok Imagine, graph and citation API.
+# Free plan only: no R2, no Workers Paid, no custom domain until DNS is live.
 
 name = "clarte-api"
 main = "workers/api/index.ts"
@@ -20,12 +21,13 @@ globs = ["**/*.md"]
 fallthrough = true
 
 [vars]
-# Non-secret configuration only. XAI_API_KEY and GEMINI_API_KEY come from
-# `wrangler secret put` in production and `.dev.vars` locally — never from this file.
+# Non-secret configuration only. Secrets come from `wrangler secret put`
+# and from `.dev.vars` locally — never from this file.
 GEMMA_MODEL = "gemma-4-26b-a4b-it"
-GROK_VOICE_MODEL = "grok-voice-latest"
-GROK_VOICE_NAME = "eve"
-TOKEN_TTL_SECONDS = "600"
+IMAGINE_ENABLED = "false"
+APP_URL = "https://clarte.io"
+API_URL = "https://api.clarte.io"
+GOOGLE_REDIRECT_URI = "https://clarte.io/auth/callback/google"
 ALLOWED_ORIGINS = "http://localhost:3000,https://clarte.io,https://www.clarte.io"
 
 # The D1 database and Vectorize index were created before the product was renamed

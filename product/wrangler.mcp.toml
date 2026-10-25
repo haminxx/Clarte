@@ -1,7 +1,7 @@
 #:schema node_modules/wrangler/config-schema.json
 # Clarte MCP server Worker — plan section 6.1, layer 4.
-# Exposes search_tech / get_document / find_related / market_evidence over MCP,
-# to the voice bridge and to any MCP client (Cursor included).
+# search_tech, get_document, find_related, market_evidence, visualize_idea.
+# Free plan only. Custom domain stays commented out until DNS is live.
 
 name = "clarte-mcp"
 main = "workers/mcp/index.ts"
@@ -21,9 +21,7 @@ fallthrough = true
 
 [vars]
 GEMMA_MODEL = "gemma-4-26b-a4b-it"
-GROK_VOICE_MODEL = "grok-voice-latest"
-GROK_VOICE_NAME = "eve"
-TOKEN_TTL_SECONDS = "600"
+IMAGINE_ENABLED = "false"
 ALLOWED_ORIGINS = "http://localhost:3000,https://clarte.io,https://www.clarte.io"
 
 [[durable_objects.bindings]]

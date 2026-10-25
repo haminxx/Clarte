@@ -24,10 +24,6 @@ export interface Env {
   KEY_ENCRYPTION_KEY?: string;
 
   GEMMA_MODEL: string;
-  /** Removed once the Grok Voice bridge is gone. Still read by workers/api/voice.ts until then. */
-  GROK_VOICE_MODEL?: string;
-  GROK_VOICE_NAME?: string;
-  TOKEN_TTL_SECONDS?: string;
   ALLOWED_ORIGINS: string;
   /** "true" enables Grok Imagine. Anything else leaves visualize_idea off. */
   IMAGINE_ENABLED?: string;

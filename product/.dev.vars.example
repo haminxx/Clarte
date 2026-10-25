@@ -1,10 +1,36 @@
 # Copy to .dev.vars for `wrangler dev`. Never commit the real file.
-# In production these are set with: wrangler secret put <NAME> --config wrangler.api.toml
+# Production: wrangler secret put <NAME> --config wrangler.api.toml
+# Names match plan Appendix B2. Values stay empty in git.
 
-# xAI — Grok Voice realtime API. Server-side only; the browser gets a minted
-# ephemeral token (POST /api/session), never this key.
+# Vapi — voice agent. The browser only gets the public key and assistant id
+# (website env). The private key is for scripts/vapi-setup.ts. The server
+# secret is what POST /vapi/tools checks (header x-vapi-secret).
+VAPI_PUBLIC_KEY=
+VAPI_ASSISTANT_ID=
+VAPI_PRIVATE_KEY=
+VAPI_SERVER_SECRET=
+
+# xAI — Grok Imagine, server-side only. Dev/test key. Session visuals use the
+# signed-in user's key from POST /me/xai-key, not this value.
 XAI_API_KEY=
+IMAGINE_ENABLED=false
 
-# Google AI Studio — Gemma 4 through the Gemini API (reasoning behind the tools).
+# Google OAuth (Cloud project "PABER") plus session and BYOK encryption.
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=http://localhost:8787/auth/callback/google
+SESSION_SECRET=
+KEY_ENCRYPTION_KEY=
+
+# Google AI Studio — Gemma 4 via the Gemini API.
 GEMINI_API_KEY=
 GEMMA_MODEL=gemma-4-26b-a4b-it
+
+# Public URLs. Wrangler [vars] already set the production values; override
+# them here for local `wrangler dev` and for scripts/vapi-setup.ts.
+APP_URL=http://localhost:3000
+API_URL=http://localhost:8787
+
+# Optional data keys (ingest).
+NASA_API_KEY=
+OPENALEX_API_KEY=

@@ -113,21 +113,6 @@ export const TOOL_BY_NAME: Record<ToolName, ToolDefinition> = Object.fromEntries
   TOOL_DEFINITIONS.map((tool) => [tool.name, tool]),
 ) as Record<ToolName, ToolDefinition>;
 
-/** @deprecated Grok Voice session.update shape. Removed with workers/api/voice.ts. */
-export function grokVoiceTools(): Array<{
-  type: "function";
-  name: string;
-  description: string;
-  parameters: JsonSchema;
-}> {
-  return TOOL_DEFINITIONS.map((tool) => ({
-    type: "function" as const,
-    name: tool.name,
-    description: tool.description,
-    parameters: tool.parameters,
-  }));
-}
-
 export function isToolName(value: string): value is ToolName {
   return (TOOL_NAMES as readonly string[]).includes(value);
 }

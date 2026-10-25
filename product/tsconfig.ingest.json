@@ -12,5 +12,5 @@
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["ingest/**/*.ts", "workers/shared/types.ts", "workers/shared/gemma.ts", "workers/shared/tools-spec.ts"]
+  "include": ["ingest/**/*.ts", "scripts/**/*.ts", "workers/shared/types.ts", "workers/shared/gemma.ts", "workers/shared/tools-spec.ts"]
 }
