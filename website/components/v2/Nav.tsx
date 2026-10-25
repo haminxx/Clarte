@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { motion, useMotionValueEvent, useReducedMotion, useScroll } from 'motion/react'
+import { useAuthNotice } from '@/components/v2/auth-notice'
 import { APP_URL, REPO_URL } from '@/lib/links'
 import { cn } from '@/lib/utils'
-import { useAuthNotice } from '@/components/v2/auth-notice'
 
 const LINKS = [
   { href: '#how', label: 'How it works' },
@@ -9,38 +10,78 @@ const LINKS = [
   { href: '#examples', label: 'Sources' },
 ]
 
-/** Lightspark-style nav: 13px links, 32px buttons. White over the video hero, ink + canvas blur after scroll. */
+/** px of scroll before the header turns solid. */
+const SOLID_AT = 56
+/** px of scroll before hide-on-scroll-down kicks in (keeps the header visible over the hero). */
+const HIDE_AFTER = 480
+/** Ignore jitter smaller than this when deciding scroll direction. */
+const DELTA = 6
+/** Optional behaviour. Set false to keep the header pinned. */
+const HIDE_ON_SCROLL_DOWN = true
+
+const SPRING = { type: 'spring', stiffness: 380, damping: 38, mass: 0.6 } as const
+
+/**
+ * Transparent over the video hero with white text; past SOLID_AT it springs in a frosted canvas
+ * background (backdrop blur, hairline border, soft shadow) and switches to ink text.
+ * Optional hide on scroll down / show on scroll up. Only opacity and transform animate (compositor only).
+ */
 export default function Nav() {
-  const [solid, setSolid] = useState(false)
+  const reduced = useReducedMotion()
   const { signIn } = useAuthNotice()
-  useEffect(() => {
-    const on = () => setSolid(window.scrollY > window.innerHeight * 0.75)
-    on()
-    window.addEventListener('scroll', on, { passive: true })
-    return () => window.removeEventListener('scroll', on)
-  }, [])
+  const { scrollY } = useScroll()
+  const [solid, setSolid] = useState(false)
+  const [hidden, setHidden] = useState(false)
+
+  useMotionValueEvent(scrollY, 'change', (y) => {
+    const prev = scrollY.getPrevious() ?? 0
+    setSolid(y > SOLID_AT) // React bails out when the value is unchanged, so this is cheap
+    if (!HIDE_ON_SCROLL_DOWN || reduced) return
+    if (y > HIDE_AFTER && y - prev > DELTA) setHidden(true)
+    else if (prev - y > DELTA || y <= HIDE_AFTER) setHidden(false)
+  })
+
+  const t = reduced ? { duration: 0 } : SPRING
+
   return (
-    <header className={cn('fixed inset-x-0 top-0 z-50 transition-colors duration-300', solid ? 'text-ink' : 'text-white')}>
-      <div aria-hidden className={cn('absolute inset-0 -z-10 transition-opacity duration-300', solid ? 'opacity-100' : 'opacity-0')}
-        style={{ background: 'linear-gradient(#F8F8F7 0%, rgba(248,248,247,.85) 70%, rgba(248,248,247,0))', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', maskImage: 'linear-gradient(#000 60%, transparent)', WebkitMaskImage: 'linear-gradient(#000 60%, transparent)' }} />
+    <motion.header
+      initial={false}
+      animate={{ y: hidden ? '-100%' : '0%' }}
+      transition={t}
+      onFocusCapture={() => setHidden(false)}
+      className={cn('fixed inset-x-0 top-0 z-50 transition-colors duration-300 ease-out', solid ? 'text-ink' : 'text-white')}
+    >
+      {/* frosted layer: opacity + slight slide only */}
+      <motion.div
+        aria-hidden
+        initial={false}
+        animate={{ opacity: solid ? 1 : 0, y: solid ? 0 : -8 }}
+        transition={t}
+        className="absolute inset-0 -z-10 border-b border-hair bg-canvas/85 shadow-[0_1px_0_rgba(0,0,0,.03),0_8px_24px_-12px_rgba(0,0,0,.14)] backdrop-blur-xl backdrop-saturate-150"
+      />
       <nav aria-label="Primary" className="page flex h-16 items-center justify-between">
         <div className="flex items-center gap-8">
-          <a href="#top" className="flex items-center gap-2 text-[17px] font-medium tracking-[-0.03em]">
+          <a href="#top" className={cn('flex items-center gap-2 text-inherit hover:no-underline text-[17px] font-medium tracking-[-0.03em]', !solid && '[text-shadow:0_1px_10px_rgba(0,0,0,.35)]')}>
             <LogoMark className="h-[18px] w-[18px]" />Clarte
           </a>
-          <ul className="hidden items-center gap-6 text-[13px] md:flex">
+          <ul className="hidden items-center gap-6 text-[13px] font-medium md:flex">
             {LINKS.map((l) => (
-              <li key={l.href}><a href={l.href} className={cn('transition-opacity hover:opacity-100', solid ? 'opacity-70' : 'opacity-80')}>{l.label}</a></li>
+              <li key={l.href}>
+                <a href={l.href} className={cn('transition-colors duration-300 hover:no-underline',
+                  solid ? 'text-ink/70 hover:text-ink' : 'text-white/90 [text-shadow:0_1px_8px_rgba(0,0,0,.45)] hover:text-white')}>
+                  {l.label}
+                </a>
+              </li>
             ))}
           </ul>
         </div>
         <div className="flex items-center gap-2">
-          <a href={REPO_URL} className={cn('btn hidden sm:inline-flex', solid ? 'hover:bg-g-100' : 'hover:bg-white/10')}>GitHub</a>
-          <button type="button" onClick={signIn} className={cn('btn hidden sm:inline-flex', solid ? 'hover:bg-g-100' : 'hover:bg-white/10')}>Sign in</button>
+          <a href={REPO_URL} className={cn('btn hidden sm:inline-flex', solid ? 'hover:bg-g-100' : 'text-white/90 hover:bg-white/10')}>GitHub</a>
+          <button type="button" onClick={signIn} className={cn('btn hidden sm:inline-flex', solid ? 'hover:bg-g-100' : 'text-white/90 hover:bg-white/10')}>Sign in</button>
           <a href={APP_URL} className={cn('btn', solid ? 'bg-ink text-canvas hover:bg-ink-hover' : 'bg-white text-ink hover:bg-g-100')}>Start talking</a>
         </div>
       </nav>
-    </header>
+    </motion.header>
   )
 }
 

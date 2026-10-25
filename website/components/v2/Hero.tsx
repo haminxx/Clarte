@@ -2,8 +2,8 @@ import { ArrowUpRight, Mic } from 'lucide-react'
 import { useReducedMotion } from 'motion/react'
 import Floating, { FloatingElement } from '@/components/ui/parallax-floating'
 import { GoogleG } from '@/components/landing/icons'
-import { APP_URL } from '@/lib/links'
 import { useAuthNotice } from '@/components/v2/auth-notice'
+import { APP_URL } from '@/lib/links'
 
 const POSTER = '/video/hero-blueprint-poster.webp'
 
@@ -41,7 +41,7 @@ export default function Hero() {
       <Floating sensitivity={-0.6} className="pointer-events-none hidden lg:block">
         <FloatingElement depth={0.6} className="left-[6%] top-[24%]">
           <div className="glass-dark w-[236px] p-3 text-left">
-            <p className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[.08em] text-white/60"><span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />Clarte · listening</p>
+            <p className="font-mono text-[9px] uppercase tracking-[.08em] text-white/60">Clarte · listening</p>
             <p className="mt-2 text-[13px] leading-[1.35] text-white/90">Why do you think the battery overheats on long flights?</p>
           </div>
         </FloatingElement>
@@ -53,21 +53,18 @@ export default function Hero() {
         </FloatingElement>
         <FloatingElement depth={0.8} className="bottom-[20%] left-[10%]">
           <div className="glass-dark flex items-center gap-2 px-3 py-2 text-[12px] text-white/85">
-            <span className="h-1.5 w-1.5 rounded-full bg-sky-300" />satellite thermal control<span className="text-white/40">↔</span>drone battery
+            satellite thermal control<span className="text-white/40">↔</span>drone battery
           </div>
         </FloatingElement>
         <FloatingElement depth={1.4} className="bottom-[22%] right-[9%]">
           <div className="glass-dark w-[232px] p-3 text-left">
-            <p className="font-mono text-[9px] uppercase tracking-[.08em] text-amber-200/80">Counterpoint</p>
+            <p className="font-mono text-[9px] uppercase tracking-[.08em] text-white/60">Counterpoint</p>
             <p className="mt-2 text-[13px] leading-[1.35] text-white/90">NASA already patented this. What makes yours different?</p>
           </div>
         </FloatingElement>
       </Floating>
 
       <div className="page relative flex flex-col items-center text-center">
-        <a href="#how" className="mb-6 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[12px] text-white/85 backdrop-blur-md transition-colors hover:bg-white/15">
-          Built at SpaceXAI Hack Day, UC San Diego <span aria-hidden>→</span>
-        </a>
         <h1 className="max-w-[900px] text-[36px] font-normal leading-[1.12] tracking-[-0.04em] [text-shadow:0_2px_24px_rgba(0,0,0,.45)] sm:text-[44px] lg:text-[56px]">
           Think out loud.<br />Find the technology that already exists.
         </h1>
