@@ -3,11 +3,13 @@ node_modules/
 
 # secrets — never commit real keys
 .env
+.env.*
 .env.local
 .env.*.local
 .dev.vars
 .dev.vars.*
 !.env.example
+!.env.production
 !.dev.vars.example
 
 # build output
