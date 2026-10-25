@@ -54,7 +54,19 @@ export default {
     try {
       if (path === "/health" || path === "/") return health(env, request);
 
-      if (path === "/vapi/tools" && request.method === "POST") return handleVapiTools(request, env);
+      if (path === "/vapi/tools" && request.method === "POST") {
+        try {
+          return await handleVapiTools(request, env);
+        } catch (error) {
+          console.error("vapi webhook failed", {
+            error: error instanceof Error ? error.message.slice(0, 180) : "failed",
+          });
+          return new Response(JSON.stringify({ results: [] }), {
+            status: 200,
+            headers: { "content-type": "application/json; charset=utf-8" },
+          });
+        }
+      }
 
       if (path === "/auth/google" && request.method === "GET") return beginGoogle(env, request);
       if (path === "/auth/callback/google" && request.method === "GET") return finishGoogle(env, request);
@@ -78,7 +90,19 @@ export default {
         const message = body.message?.trim() ?? "";
         if (!sessionId || !message) return fail(env, request, "sessionId and message are required");
         const user = await bindSessionUser(env, request, sessionId);
-        return json(env, request, await coachTurn(env, sessionId, message, user?.id ?? null));
+        try {
+          return json(env, request, await coachTurn(env, sessionId, message, user?.id ?? null));
+        } catch (error) {
+          console.error("chat failed", {
+            error: error instanceof Error ? error.message.slice(0, 180) : "failed",
+          });
+          return json(env, request, {
+            reply: "I could not look that up just now. Say the problem again in one sentence.",
+            stage: "five_whys",
+            citations: [],
+            highlight: [],
+          });
+        }
       }
 
       const toolMatch = path.match(/^\/api\/tools\/([a-z_]+)$/);

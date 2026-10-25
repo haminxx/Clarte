@@ -54,18 +54,25 @@ export function sessionCookie(request: Request, value: string, maxAge: number): 
 export async function currentUser(env: Env, request: Request): Promise<AuthUser | null> {
   const id = readCookie(request, "clarte_session");
   if (!id) return null;
-  return getUserByAuthSession(env, id);
+  try {
+    return await getUserByAuthSession(env, id);
+  } catch (error) {
+    console.warn("session lookup failed", {
+      error: error instanceof Error ? error.message.slice(0, 180) : "failed",
+    });
+    return null;
+  }
 }
 
 function configured(env: Env): boolean {
-  return Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.SESSION_SECRET);
+  return Boolean(env.GOOGLE_CLIENT_ID?.trim() && env.GOOGLE_CLIENT_SECRET?.trim() && env.SESSION_SECRET?.trim());
 }
 
 export async function beginGoogle(env: Env, request: Request): Promise<Response> {
-  if (!configured(env)) return fail(env, request, "Google sign-in is not configured", 500);
-  const state = await signPayload(env.SESSION_SECRET!, { exp: Date.now() + STATE_MS, nonce: crypto.randomUUID() });
+  if (!configured(env)) return fail(env, request, "Google sign-in is not configured", 400);
+  const state = await signPayload(env.SESSION_SECRET!.trim(), { exp: Date.now() + STATE_MS, nonce: crypto.randomUUID() });
   const params = new URLSearchParams({
-    client_id: env.GOOGLE_CLIENT_ID!,
+    client_id: env.GOOGLE_CLIENT_ID!.trim(),
     redirect_uri: googleRedirectUri(env),
     response_type: "code",
     scope: "openid email profile",
@@ -82,50 +89,78 @@ export async function finishGoogle(env: Env, request: Request): Promise<Response
   if (url.searchParams.get("error") || !url.searchParams.get("code")) return back("failed");
 
   const state = url.searchParams.get("state") ?? "";
-  const payload = await readSignedPayload<{ exp?: number }>(env.SESSION_SECRET!, state);
+  let payload: { exp?: number } | null = null;
+  try {
+    payload = await readSignedPayload<{ exp?: number }>(env.SESSION_SECRET!.trim(), state);
+  } catch (error) {
+    console.warn("Google state check failed", {
+      error: error instanceof Error ? error.message.slice(0, 180) : "failed",
+    });
+    return back("failed");
+  }
   if (!payload?.exp || payload.exp < Date.now()) return back("failed");
 
-  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      code: url.searchParams.get("code")!,
-      client_id: env.GOOGLE_CLIENT_ID!,
-      client_secret: env.GOOGLE_CLIENT_SECRET!,
-      redirect_uri: googleRedirectUri(env),
-      grant_type: "authorization_code",
-    }),
-  });
+  let tokenResponse: Response;
+  try {
+    tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        code: url.searchParams.get("code")!,
+        client_id: env.GOOGLE_CLIENT_ID!.trim(),
+        client_secret: env.GOOGLE_CLIENT_SECRET!.trim(),
+        redirect_uri: googleRedirectUri(env),
+        grant_type: "authorization_code",
+      }),
+    });
+  } catch (error) {
+    console.warn("Google token exchange failed", {
+      error: error instanceof Error ? error.message.slice(0, 180) : "failed",
+    });
+    return back("failed");
+  }
   if (!tokenResponse.ok) {
     console.warn("Google token exchange failed", { status: tokenResponse.status });
     return back("failed");
   }
-  const token = (await tokenResponse.json()) as { access_token?: string };
-  if (!token.access_token) return back("failed");
-
-  const profileResponse = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
-    headers: { authorization: `Bearer ${token.access_token}` },
-  });
-  if (!profileResponse.ok) {
-    console.warn("Google userinfo failed", { status: profileResponse.status });
+  let token: { access_token?: string };
+  try {
+    token = (await tokenResponse.json()) as { access_token?: string };
+  } catch {
     return back("failed");
   }
-  const profile = (await profileResponse.json()) as {
-    sub?: string;
-    email?: string;
-    name?: string;
-    given_name?: string;
-    family_name?: string;
-  };
-  if (!profile.sub) return back("failed");
-  const name = profile.name || [profile.given_name, profile.family_name].filter(Boolean).join(" ") || null;
-  const user = await upsertGoogleUser(env, { sub: profile.sub, email: profile.email ?? null, name });
-  const expiresAt = sqliteUtc(new Date(Date.now() + SESSION_SECONDS * 1000));
-  const sessionId = await createAuthSession(env, user.id, expiresAt);
+  if (!token.access_token) return back("failed");
 
-  const headers = new Headers({ location: `${appUrl(env)}/?auth=ok` });
-  headers.append("set-cookie", sessionCookie(request, sessionId, SESSION_SECONDS));
-  return new Response(null, { status: 302, headers });
+  try {
+    const profileResponse = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
+      headers: { authorization: `Bearer ${token.access_token}` },
+    });
+    if (!profileResponse.ok) {
+      console.warn("Google userinfo failed", { status: profileResponse.status });
+      return back("failed");
+    }
+    const profile = (await profileResponse.json()) as {
+      sub?: string;
+      email?: string;
+      name?: string;
+      given_name?: string;
+      family_name?: string;
+    };
+    if (!profile.sub) return back("failed");
+    const name = profile.name || [profile.given_name, profile.family_name].filter(Boolean).join(" ") || null;
+    const user = await upsertGoogleUser(env, { sub: profile.sub, email: profile.email ?? null, name });
+    const expiresAt = sqliteUtc(new Date(Date.now() + SESSION_SECONDS * 1000));
+    const sessionId = await createAuthSession(env, user.id, expiresAt);
+
+    const headers = new Headers({ location: `${appUrl(env)}/?auth=ok` });
+    headers.append("set-cookie", sessionCookie(request, sessionId, SESSION_SECONDS));
+    return new Response(null, { status: 302, headers });
+  } catch (error) {
+    console.warn("Google sign-in failed", {
+      error: error instanceof Error ? error.message.slice(0, 180) : "failed",
+    });
+    return back("failed");
+  }
 }
 
 export async function logout(env: Env, request: Request): Promise<Response> {
@@ -135,19 +170,27 @@ export async function logout(env: Env, request: Request): Promise<Response> {
 }
 
 export async function me(env: Env, request: Request): Promise<Response> {
-  const user = await currentUser(env, request);
-  if (!user) return json(env, request, { user: null, xaiKey: { connected: false, last4: null } });
-  const key = await getUserKey(env, user.id, "xai");
-  return json(env, request, {
-    user: { id: user.id, email: user.email, name: user.name },
-    xaiKey: { connected: Boolean(key), last4: key?.last4 ?? null },
-  });
+  const signedOut = { user: null, xaiKey: { connected: false, last4: null } };
+  try {
+    const user = await currentUser(env, request);
+    if (!user) return json(env, request, signedOut);
+    const key = await getUserKey(env, user.id, "xai");
+    return json(env, request, {
+      user: { id: user.id, email: user.email, name: user.name },
+      xaiKey: { connected: Boolean(key), last4: key?.last4 ?? null },
+    });
+  } catch (error) {
+    console.warn("profile lookup failed", {
+      error: error instanceof Error ? error.message.slice(0, 180) : "failed",
+    });
+    return json(env, request, signedOut);
+  }
 }
 
 export async function saveXaiKey(env: Env, request: Request): Promise<Response> {
   const user = await currentUser(env, request);
   if (!user) return fail(env, request, "Sign in required", 401);
-  if (!env.KEY_ENCRYPTION_KEY) return fail(env, request, "KEY_ENCRYPTION_KEY is not configured", 500);
+  if (!env.KEY_ENCRYPTION_KEY?.trim()) return fail(env, request, "KEY_ENCRYPTION_KEY is not configured", 400);
 
   let body: { apiKey?: string } = {};
   try {
@@ -158,10 +201,17 @@ export async function saveXaiKey(env: Env, request: Request): Promise<Response> 
   const apiKey = body.apiKey?.trim() ?? "";
   if (!/^\S{12,300}$/.test(apiKey)) return fail(env, request, "apiKey is required");
 
-  const encrypted = await encryptString(env.KEY_ENCRYPTION_KEY, apiKey);
-  const last4 = apiKey.slice(-4);
-  await upsertUserKey(env, user.id, "xai", { ...encrypted, last4 });
-  return json(env, request, { connected: true, last4 });
+  try {
+    const encrypted = await encryptString(env.KEY_ENCRYPTION_KEY.trim(), apiKey);
+    const last4 = apiKey.slice(-4);
+    await upsertUserKey(env, user.id, "xai", { ...encrypted, last4 });
+    return json(env, request, { connected: true, last4 });
+  } catch (error) {
+    console.warn("xAI key store failed", {
+      error: error instanceof Error ? error.message.slice(0, 180) : "failed",
+    });
+    return fail(env, request, "Could not store the xAI key", 400);
+  }
 }
 
 export async function clearXaiKey(env: Env, request: Request): Promise<Response> {

@@ -74,7 +74,7 @@ function readSessionId(message: Record<string, unknown>): string {
 }
 
 function authorized(request: Request, env: Env): boolean {
-  const expected = env.VAPI_SERVER_SECRET;
+  const expected = env.VAPI_SERVER_SECRET?.trim();
   if (!expected) {
     console.warn("VAPI_SERVER_SECRET is unset; accepting /vapi/tools without a secret");
     return true;
@@ -97,11 +97,13 @@ export async function handleVapiTools(request: Request, env: Env): Promise<Respo
     });
   }
 
+  let calls: ToolCall[] = [];
   try {
     const body = asRecord(await request.json().catch(() => null));
     const message = asRecord(body?.message) ?? {};
     if (text(message.type) !== "tool-calls") return ok([]);
 
+    calls = toolCallsFrom(message);
     const sessionId = readSessionId(message) || crypto.randomUUID();
     await ensureSession(env, sessionId);
     const callId = text(asRecord(message.call)?.id);
@@ -109,7 +111,7 @@ export async function handleVapiTools(request: Request, env: Env): Promise<Respo
     const stage = (await getSession(env, sessionId))?.stage ?? "five_whys";
 
     const results: { toolCallId: string; result?: string; error?: string }[] = [];
-    for (const call of toolCallsFrom(message)) {
+    for (const call of calls) {
       if (!isToolName(call.name)) {
         results.push({ toolCallId: call.id, error: `Unknown tool: ${call.name}` });
         continue;
@@ -144,6 +146,7 @@ export async function handleVapiTools(request: Request, env: Env): Promise<Respo
     console.error("vapi webhook failed", {
       error: error instanceof Error ? error.message.slice(0, 180) : "failed",
     });
-    return ok([]);
+    if (!calls.length) return ok([]);
+    return ok(calls.map((call) => ({ toolCallId: call.id, error: "The library could not complete that lookup." })));
   }
 }
