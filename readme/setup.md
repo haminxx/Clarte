@@ -183,9 +183,9 @@ Pass `sessionId` when the browser starts the call so tool rows land on `sessions
 ## 4. Ingest the library
 
 Ingest runs locally, not inside a Worker. See
-[architecture.md](architecture.md#why-ingest-runs-locally). Endpoints, limits, terms, and the
-live check for each source are in [data_sources.md](data_sources.md), the inventory Appendix A
-points at. The full run reads `GEMINI_API_KEY`,
+[architecture.md](architecture.md#why-ingest-runs-locally). Endpoints, limits, terms, and
+today's live check for each source are in [data_sources.md](data_sources.md) (Appendix A of
+[PLAN.md](PLAN.md)). The full run reads `GEMINI_API_KEY`,
 `CLOUDFLARE_ACCOUNT_ID`, and `CLOUDFLARE_API_TOKEN`. `NASA_API_KEY` and `OPENALEX_API_KEY` are
 optional. Without Gemini or Cloudflare the script still writes files, using fallback summaries and
 stub vectors.
