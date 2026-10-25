@@ -1,6 +1,6 @@
 # Hackathon requirements — how Clarte meets each one
 
-SpaceXAI Hack Day, UC San Diego, 2026-10-25. Submission deadline 6:30 PM PT on the
+Hacktoberfest Hack Day San Diego x SpaceXSI, UC San Diego, 2026-10-25. Submission deadline 6:30 PM PT on the
 [MLH event page](https://www.mlh.com/events/hacktoberfest-x-spacexai-hack-day-uc-san-diego).
 
 The track accepts the Grok Voice API or the Grok Imagine API. Clarte meets it with **Grok Imagine**.
@@ -8,7 +8,7 @@ Voice runs on Vapi.
 
 | Requirement | How Clarte meets it | Where to look |
 |---|---|---|
-| **SpaceXAI: Make it Legendary** — use real space data | About 700 documents from NASA T2 patents, spinoffs, and software, NASA NTRS reports, and arXiv space categories. Official APIs only, with source URL and license status stored on each document. | [`product/ingest/sources/`](../product/ingest/sources/), [`db/migrations/0001_init.sql`](../product/db/migrations/0001_init.sql) |
+| **SpaceXSI: Make it Legendary** — use real space data | About 700 documents from NASA T2 patents, spinoffs, and software, NASA NTRS reports, and arXiv space categories. Official APIs only, with source URL and license status stored on each document. | [`product/ingest/sources/`](../product/ingest/sources/), [`db/migrations/0001_init.sql`](../product/db/migrations/0001_init.sql) |
 | **Required: built with Cursor** | The repo is written with Cursor and Cursor cloud agents. The MCP server is connectable from Cursor, so the library can be queried from the editor. | `git log`, [architecture.md](architecture.md#the-five-tools) |
 | **Required: Grok Imagine API** | After the user confirms the idea card, the Worker calls `POST https://api.x.ai/v1/images/generations`. The call is off until that person is signed in with Google and has an xAI key encrypted in D1. Stages 1–3 do not call Imagine. | [PLAN.md](PLAN.md) sections 5 and 6.6, [architecture.md](architecture.md#http-api) |
 | **Best Use of Gemma 4** — through the Gemini API | `gemma-4-26b-a4b-it` writes document summaries and domain tags at ingest, the one-line connection reason in `find_related`, the cited objections in `market_evidence`, and the prompts Grok Imagine receives. | [`workers/shared/gemma.ts`](../product/workers/shared/gemma.ts), [`prompts/enrich.md`](../product/prompts/enrich.md), [`prompts/debate.md`](../product/prompts/debate.md) |
