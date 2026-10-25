@@ -1,17 +1,13 @@
-import { AudioPlayer, MicrophoneStream } from "./audio";
-import type { VoiceSession } from "./types";
-
 /**
- * Grok Voice realtime client (plan section 6.1, layer 2).
+ * Vapi Web SDK client (plan section 6.1).
  *
- * The browser never holds XAI_API_KEY: the API Worker mints an ephemeral client
- * secret, and this client passes it as the WebSocket subprotocol
- * `xai-client-secret.<token>`, which is the documented browser auth path.
+ * The browser only receives the public key and assistant id. The private key
+ * is never read here and must not be added as a NEXT_PUBLIC variable.
+ * PCM capture stays inside @vapi-ai/web; this module does not touch audio.
  *
- * Tool calls arrive as `response.function_call_arguments.done`. Each one is
- * forwarded to the Worker's tool bridge, the result goes back as a
- * `function_call_output` item, and only once every outstanding call has answered
- * does the client send a single `response.create`.
+ * `start(assistantId, { metadata, variableValues })` carries the Clarte session
+ * id so the tool webhook can read `call.metadata.sessionId` or the assistant
+ * variable `sessionId`.
  */
 
 export type VoiceStatus = "idle" | "connecting" | "live" | "closed" | "error";
@@ -20,152 +16,124 @@ export interface VoiceClientHandlers {
   onStatus: (status: VoiceStatus, detail?: string) => void;
   onUserTranscript: (text: string, final: boolean) => void;
   onAssistantTranscript: (text: string, final: boolean) => void;
-  onToolCall: (name: string, args: Record<string, unknown>) => Promise<unknown>;
   onError: (message: string) => void;
 }
 
-interface RealtimeEvent {
-  type: string;
-  delta?: string;
-  transcript?: string;
-  name?: string;
-  call_id?: string;
-  arguments?: string;
-  error?: { message?: string };
+interface VapiLike {
+  on(event: string, listener: (payload?: unknown) => void): void;
+  removeAllListeners(): void;
+  start(
+    assistantId: string,
+    overrides: {
+      metadata: { sessionId: string };
+      variableValues: { sessionId: string };
+    },
+  ): Promise<{ id?: string } | null>;
+  stop(): Promise<void>;
+}
+
+function publicVoiceConfig(): { publicKey: string; assistantId: string } | null {
+  const publicKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY?.trim() ?? "";
+  const assistantId = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID?.trim() ?? "";
+  if (!publicKey || !assistantId) return null;
+  return { publicKey, assistantId };
+}
+
+function errorText(error: unknown): string {
+  if (typeof error === "string" && error.trim()) return error;
+  if (error && typeof error === "object") {
+    const row = error as Record<string, unknown>;
+    if (typeof row.message === "string" && row.message.trim()) return row.message;
+    const nested = row.error;
+    if (typeof nested === "string" && nested.trim()) return nested;
+    if (nested && typeof nested === "object") {
+      const message = (nested as { message?: unknown }).message;
+      if (typeof message === "string" && message.trim()) return message;
+    }
+  }
+  return "Voice error";
+}
+
+async function loadVapi(publicKey: string): Promise<VapiLike> {
+  const loaded = (await import("@vapi-ai/web")) as { default?: new (apiToken: string) => VapiLike };
+  const VapiClient = loaded.default;
+  if (!VapiClient) throw new Error("The Vapi Web SDK did not load.");
+  return new VapiClient(publicKey);
 }
 
 export class VoiceClient {
-  private socket: WebSocket | null = null;
-  private readonly microphone = new MicrophoneStream();
-  private readonly player = new AudioPlayer();
-  private pendingToolCalls = 0;
-  private assistantBuffer = "";
+  private vapi: VapiLike | null = null;
 
   constructor(private readonly handlers: VoiceClientHandlers) {}
 
-  async connect(session: VoiceSession): Promise<void> {
-    if (!session.token) {
-      this.handlers.onStatus("error", "No Grok Voice token: set XAI_API_KEY on the API Worker.");
+  async connect(sessionId: string): Promise<void> {
+    this.disconnect();
+
+    const config = publicVoiceConfig();
+    if (!config) {
+      this.handlers.onStatus(
+        "error",
+        "Add NEXT_PUBLIC_VAPI_PUBLIC_KEY and NEXT_PUBLIC_VAPI_ASSISTANT_ID to talk with Clarte. Text chat still works.",
+      );
       return;
     }
 
     this.handlers.onStatus("connecting");
 
-    const socket = new WebSocket(session.url, [`xai-client-secret.${session.token}`]);
-    this.socket = socket;
-
-    socket.onopen = async () => {
-      socket.send(JSON.stringify(session.sessionConfig));
-      try {
-        await this.microphone.start((base64) => {
-          if (socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({ type: "input_audio_buffer.append", audio: base64 }));
-          }
-        });
-        this.handlers.onStatus("live");
-        // Server VAD handles turn-taking, but Clarte speaks first.
-        socket.send(JSON.stringify({ type: "response.create" }));
-      } catch (error) {
-        this.handlers.onStatus("error", `Microphone blocked: ${String(error)}`);
-      }
-    };
-
-    socket.onmessage = (message) => {
-      if (typeof message.data !== "string") return;
-      let event: RealtimeEvent;
-      try {
-        event = JSON.parse(message.data) as RealtimeEvent;
-      } catch {
-        return;
-      }
-      void this.handleEvent(event);
-    };
-
-    socket.onerror = () => this.handlers.onError("Voice socket error");
-
-    socket.onclose = (event) => {
-      this.microphone.stop();
-      this.handlers.onStatus("closed", event.reason || undefined);
-    };
-  }
-
-  private async handleEvent(event: RealtimeEvent): Promise<void> {
-    switch (event.type) {
-      case "response.output_audio.delta":
-      case "response.audio.delta":
-        if (event.delta) this.player.enqueue(event.delta);
-        return;
-
-      case "response.output_audio_transcript.delta":
-        this.assistantBuffer += event.delta ?? "";
-        this.handlers.onAssistantTranscript(this.assistantBuffer, false);
-        return;
-
-      case "response.output_audio_transcript.done":
-        this.handlers.onAssistantTranscript(event.transcript ?? this.assistantBuffer, true);
-        this.assistantBuffer = "";
-        return;
-
-      case "conversation.item.input_audio_transcription.updated":
-        this.handlers.onUserTranscript(event.transcript ?? event.delta ?? "", false);
-        return;
-
-      case "conversation.item.input_audio_transcription.completed":
-        this.handlers.onUserTranscript(event.transcript ?? "", true);
-        return;
-
-      case "input_audio_buffer.speech_started":
-        // The user interrupted: drop whatever assistant audio is still queued.
-        this.player.reset();
-        return;
-
-      case "response.function_call_arguments.done":
-        await this.runToolCall(event);
-        return;
-
-      case "error":
-        this.handlers.onError(event.error?.message ?? "Unknown realtime error");
-        return;
-
-      default:
-        return;
-    }
-  }
-
-  private async runToolCall(event: RealtimeEvent): Promise<void> {
-    if (!event.name || !event.call_id || !this.socket) return;
-    this.pendingToolCalls += 1;
-
-    let output: unknown;
     try {
-      const args = event.arguments ? (JSON.parse(event.arguments) as Record<string, unknown>) : {};
-      output = await this.handlers.onToolCall(event.name, args);
+      const vapi = await loadVapi(config.publicKey);
+      this.vapi = vapi;
+
+      vapi.on("call-start", () => this.handlers.onStatus("live"));
+      vapi.on("call-end", () => this.handlers.onStatus("closed"));
+      vapi.on("call-start-failed", (payload) => {
+        const detail =
+          payload && typeof payload === "object" && typeof (payload as { error?: unknown }).error === "string"
+            ? (payload as { error: string }).error
+            : "Voice did not start.";
+        this.handlers.onStatus("error", detail);
+      });
+      vapi.on("message", (message) => this.handleMessage(message));
+      vapi.on("error", (error) => {
+        const detail = errorText(error);
+        this.handlers.onError(detail);
+        this.handlers.onStatus("error", detail);
+      });
+
+      const call = await vapi.start(config.assistantId, {
+        metadata: { sessionId },
+        variableValues: { sessionId },
+      });
+
+      if (!call) {
+        this.handlers.onStatus("error", "Voice did not start. Try again.");
+        return;
+      }
+      this.handlers.onStatus("live");
     } catch (error) {
-      output = { error: String(error) };
+      this.handlers.onStatus("error", errorText(error));
     }
+  }
 
-    this.socket.send(
-      JSON.stringify({
-        type: "conversation.item.create",
-        item: {
-          type: "function_call_output",
-          call_id: event.call_id,
-          output: JSON.stringify(output),
-        },
-      }),
-    );
+  private handleMessage(message: unknown): void {
+    if (!message || typeof message !== "object") return;
+    const row = message as Record<string, unknown>;
+    if (row.type !== "transcript") return;
 
-    this.pendingToolCalls -= 1;
-    // Parallel calls: only ask for the next turn once every result is in.
-    if (this.pendingToolCalls === 0) {
-      this.socket.send(JSON.stringify({ type: "response.create" }));
+    const text = typeof row.transcript === "string" ? row.transcript : "";
+    if (!text.trim()) return;
+    const final = row.transcriptType !== "partial";
+    if (row.role === "user") this.handlers.onUserTranscript(text, final);
+    if (row.role === "assistant" || row.role === "bot") {
+      this.handlers.onAssistantTranscript(text, final);
     }
   }
 
   disconnect(): void {
-    this.microphone.stop();
-    this.player.reset();
-    this.socket?.close();
-    this.socket = null;
+    const vapi = this.vapi;
+    this.vapi = null;
+    if (!vapi) return;
+    vapi.removeAllListeners();
+    void vapi.stop().catch(() => undefined);
   }
 }

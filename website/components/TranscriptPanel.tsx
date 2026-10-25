@@ -1,20 +1,22 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { TechDocument, TranscriptEntry } from "@/lib/types";
+import { citationsForLine } from "@/lib/citations";
+import type { Citation, TranscriptEntry } from "@/lib/types";
 
 interface Props {
   transcript: TranscriptEntry[];
-  documents: TechDocument[];
+  citations: Citation[];
+  onFocus: (docId: string) => void;
 }
 
-/** Conversation on top, the documents the coach pulled underneath. */
-export default function TranscriptPanel({ transcript, documents }: Props) {
+/** Live conversation. Lines that name a source get an inline link chip. */
+export default function TranscriptPanel({ transcript, citations, onFocus }: Props) {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [transcript.length]);
+  }, [transcript.length, citations.length]);
 
   return (
     <aside className="panel">
@@ -24,34 +26,36 @@ export default function TranscriptPanel({ transcript, documents }: Props) {
             Clarte opens with a question. Say the problem you are stuck on, in one sentence.
           </p>
         ) : (
-          transcript.map((entry) => (
-            <p key={entry.id} className={`line ${entry.role}`}>
-              <span className="who">{entry.role === "clarte" ? "Clarte" : entry.role === "user" ? "You" : ""}</span>
-              {entry.text}
-            </p>
-          ))
+          transcript.map((entry) => {
+            const chips = citationsForLine(entry, citations);
+            return (
+              <p key={entry.id} className={`line ${entry.role}`}>
+                <span className="who">
+                  {entry.role === "clarte" ? "Clarte Coach" : entry.role === "user" ? "You" : ""}
+                </span>
+                {entry.text}
+                {chips.length > 0 ? (
+                  <span className="chips">
+                    {chips.map((citation) => (
+                      <a
+                        key={citation.docId}
+                        className="chip"
+                        href={citation.url || undefined}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={() => onFocus(citation.docId)}
+                      >
+                        {citation.title}
+                      </a>
+                    ))}
+                  </span>
+                ) : null}
+              </p>
+            );
+          })
         )}
         <div ref={endRef} />
       </section>
-
-      {documents.length > 0 ? (
-        <section className="evidence" aria-label="Retrieved documents">
-          <h3>From the library</h3>
-          <ul>
-            {documents.slice(0, 8).map((document) => (
-              <li key={document.id}>
-                <a href={document.url} target="_blank" rel="noreferrer">
-                  {document.title}
-                </a>
-                <span className="meta">
-                  {document.center ?? document.source} · {document.type}
-                </span>
-                {document.reason ? <span className="reason">{document.reason}</span> : null}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
     </aside>
   );
 }

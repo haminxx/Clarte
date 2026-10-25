@@ -1,6 +1,16 @@
-export type Stage = "five_whys" | "why_how_what" | "debate";
+export type Stage = "five_whys" | "why_how_what" | "debate" | "visualize";
+
+export const STAGES: Stage[] = ["five_whys", "why_how_what", "debate", "visualize"];
+
+export function isStage(value: unknown): value is Stage {
+  return typeof value === "string" && (STAGES as string[]).includes(value);
+}
 
 export type DocType = "paper" | "patent" | "report" | "software" | "spinoff";
+
+export type VisualKind = "concept" | "system_diagram" | "paper_figure" | "video";
+
+export const VISUAL_KINDS = ["concept", "system_diagram", "paper_figure"] as const;
 
 export interface GraphNode {
   id: string;
@@ -25,32 +35,37 @@ export interface GraphPayload {
   links: GraphLink[];
 }
 
-export interface TechDocument {
-  id: string;
-  source: string;
-  type: DocType;
-  title: string;
-  summary: string;
-  domains: string[];
+export interface Citation {
+  docId: string;
   url: string;
-  center: string | null;
-  licenseStatus: string | null;
-  score?: number;
-  reason?: string;
+  title: string;
+  source: string;
+  type: string;
+  stage: string;
 }
 
-export interface Objection {
-  claim: string;
-  evidence_ids: string[];
-  question: string;
+export interface IdeaEvidence {
+  id: string;
+  title: string;
+  url: string;
+  source?: string;
+  type?: string;
 }
 
 export interface IdeaCardData {
   problem: string;
   rootCause: string;
   solution: string;
-  evidence: { id: string; title: string; url: string }[];
+  evidence: IdeaEvidence[];
   risk: string;
+}
+
+export interface ReferenceItem {
+  id: string;
+  title: string;
+  url: string;
+  source: string;
+  type: string;
 }
 
 export interface TranscriptEntry {
@@ -59,15 +74,18 @@ export interface TranscriptEntry {
   text: string;
 }
 
-export interface VoiceSession {
-  sessionId: string;
-  url: string;
+export interface Visual {
+  id: string;
+  kind: string;
+  prompt: string;
+  imageUrl: string;
   model: string;
-  token: string;
-  expiresAt: number;
-  stubbed: boolean;
-  sessionConfig: {
-    type: "session.update";
-    session: Record<string, unknown>;
-  };
 }
+
+export interface Me {
+  user: { id: string; email: string; name: string } | null;
+  xaiKey: { connected: boolean; last4: string | null };
+}
+
+/** Shown on the idea card until the signed-in user has connected an xAI key. */
+export const VISUALIZE_AUTH_COPY = "Sign in and connect an xAI key to visualize this idea.";
