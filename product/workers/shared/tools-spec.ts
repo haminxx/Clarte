@@ -1,5 +1,5 @@
 /**
- * The four PABER tools — plan section 6.3. One definition feeds three consumers:
+ * The four Clarte tools — plan section 6.3. One definition feeds three consumers:
  * the MCP server, the Grok Voice `session.update` tools array, and the HTTP bridge
  * that executes a tool call arriving back over the voice socket.
  */
@@ -24,7 +24,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "search_tech",
     description:
-      "Search the PABER library of papers, patents, NASA reports, open-source software and spinoffs for work related to a problem or idea. Call it whenever the user names a problem, a mechanism or a component. The nodes it returns light up in the user's graph.",
+      "Search the Clarte library of papers, patents, NASA reports, open-source software and spinoffs for work related to a problem or idea. Call it whenever the user names a problem, a mechanism or a component. The nodes it returns light up in the user's graph.",
     parameters: {
       type: "object",
       properties: {
@@ -40,11 +40,11 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "get_document",
     description:
-      "Fetch one document in full by its PABER id, with summary, domain tags, source link and licence status. Call it before quoting a specific paper or patent out loud.",
+      "Fetch one document in full by its Clarte id, with summary, domain tags, source link and licence status. Call it before quoting a specific paper or patent out loud.",
     parameters: {
       type: "object",
       properties: {
-        id: { type: "string", description: "PABER document id returned by search_tech." },
+        id: { type: "string", description: "Clarte document id returned by search_tech." },
       },
       required: ["id"],
     },
@@ -56,7 +56,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     parameters: {
       type: "object",
       properties: {
-        id: { type: "string", description: "PABER document id to expand from." },
+        id: { type: "string", description: "Clarte document id to expand from." },
         cross_domain: {
           type: "boolean",
           description: "Only return neighbours from a different domain. Default false.",

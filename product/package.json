@@ -1,9 +1,15 @@
 {
-  "name": "@paber/product",
+  "name": "@clarte/product",
   "version": "0.1.0",
   "private": true,
-  "description": "PABER service layer: MCP tool server, Grok Voice bridge API, D1 + Vectorize knowledge graph",
+  "description": "Clarte service layer: MCP tool server, Grok Voice bridge API, D1 + Vectorize knowledge graph",
   "license": "MIT",
+  "homepage": "https://clarte.io",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/haminxx/Clarte.git",
+    "directory": "product"
+  },
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.ingest.json",

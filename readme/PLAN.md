@@ -1,5 +1,12 @@
 # PABER: Startup Plan and System Design
 
+> **Archived as written.** The product is now called **Clarte**, served from **clarte.io**, and the
+> repo is **github.com/haminxx/Clarte**. This document predates the rename and is kept verbatim as the
+> plan of record for the hackathon build, so "PABER" throughout means Clarte. The Cloudflare D1
+> database `paber` and Vectorize index `paber-docs` named in section 6.5 are unchanged and still
+> correct — those are live resource identities, not branding. A separate plan update covering the
+> voice provider, idea visualisation and sign-in will supersede this doc.
+
 **Version:** v2, English (2026-10-25, SpaceXAI Hack Day, UC San Diego)
 
 **Purpose of this doc:** the single source of truth to hand to Cursor AI to start and guide the build.

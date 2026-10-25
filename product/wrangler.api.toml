@@ -1,8 +1,8 @@
 #:schema node_modules/wrangler/config-schema.json
-# PABER API / tool bridge Worker — plan section 6.1, layer 3.
+# Clarte API / tool bridge Worker — plan section 6.1, layer 3.
 # Mints Grok Voice ephemeral tokens, executes tool calls, serves graph + mention data.
 
-name = "paber-api"
+name = "clarte-api"
 main = "workers/api/index.ts"
 compatibility_date = "2026-10-25"
 compatibility_flags = ["nodejs_compat"]
@@ -26,8 +26,13 @@ GEMMA_MODEL = "gemma-4-26b-a4b-it"
 GROK_VOICE_MODEL = "grok-voice-latest"
 GROK_VOICE_NAME = "eve"
 TOKEN_TTL_SECONDS = "600"
-ALLOWED_ORIGINS = "http://localhost:3000"
+ALLOWED_ORIGINS = "http://localhost:3000,https://clarte.io,https://www.clarte.io"
 
+# The D1 database and Vectorize index were created before the product was renamed
+# from PABER to Clarte. Their names are resource identities, not branding, so they
+# stay as `paber` / `paber-docs`. Renaming them would mean recreating and reloading
+# both stores for no user-visible gain. Bindings (DB, VECTORS, AI) are what the code
+# actually uses.
 [[d1_databases]]
 binding = "DB"
 database_name = "paber"
@@ -40,3 +45,10 @@ index_name = "paber-docs" # 768 dims, cosine
 
 [ai]
 binding = "AI"
+
+# Custom domain for api.clarte.io, once clarte.io is served by Cloudflare DNS.
+# Uncomment after the zone is active, then redeploy; the Worker keeps its
+# workers.dev URL as well.
+# [[routes]]
+# pattern = "api.clarte.io"
+# custom_domain = true

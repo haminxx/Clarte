@@ -1,16 +1,22 @@
 {
-  "name": "@paber/website",
+  "name": "@clarte/website",
   "version": "0.1.0",
   "private": true,
-  "description": "PABER frontend: 3D knowledge graph, Grok Voice mic, stage indicator, idea card",
+  "description": "Clarte frontend: 3D knowledge graph, Grok Voice mic, stage indicator, idea card",
   "license": "MIT",
+  "homepage": "https://clarte.io",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/haminxx/Clarte.git",
+    "directory": "website"
+  },
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",
     "start": "npx serve out",
     "typecheck": "tsc --noEmit",
     "lint": "next lint",
-    "deploy": "npm run build && wrangler pages deploy out --project-name paber"
+    "deploy": "npm run build && wrangler pages deploy out --project-name clarte-web"
   },
   "dependencies": {
     "next": "^16.4.3",

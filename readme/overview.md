@@ -2,7 +2,7 @@
 
 ## One line
 
-PABER is a technology library for engineers and researchers, plus a voice brainstorming partner that
+Clarte is a technology library for engineers and researchers, plus a voice brainstorming partner that
 trains how they think.
 
 ## The problem
@@ -19,7 +19,7 @@ Elicit, Consensus, Connected Papers and ResearchRabbit find and summarise papers
 citation. None of them argue with you, and none of them put patents, NASA technology and papers in one
 semantic space.
 
-## What PABER does differently
+## What Clarte does differently
 
 - **It does not hand out answers.** It asks questions until you can state your own root problem.
 - **It connects across domains.** Documents are embedded and linked by meaning, so satellite thermal

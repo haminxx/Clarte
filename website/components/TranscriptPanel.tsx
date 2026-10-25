@@ -21,12 +21,12 @@ export default function TranscriptPanel({ transcript, documents }: Props) {
       <section className="transcript" aria-label="Conversation">
         {transcript.length === 0 ? (
           <p className="muted">
-            PABER opens with a question. Say the problem you are stuck on, in one sentence.
+            Clarte opens with a question. Say the problem you are stuck on, in one sentence.
           </p>
         ) : (
           transcript.map((entry) => (
             <p key={entry.id} className={`line ${entry.role}`}>
-              <span className="who">{entry.role === "paber" ? "PABER" : entry.role === "user" ? "You" : ""}</span>
+              <span className="who">{entry.role === "clarte" ? "Clarte" : entry.role === "user" ? "You" : ""}</span>
               {entry.text}
             </p>
           ))

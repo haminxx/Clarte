@@ -1,13 +1,13 @@
-# PABER docs
+# Clarte docs
 
 | Doc | What it covers |
 |---|---|
-| [overview.md](overview.md) | What PABER is, the problem, and the three-stage conversation |
+| [overview.md](overview.md) | What Clarte is, the problem, and the three-stage conversation |
 | [architecture.md](architecture.md) | Layers, diagram, data model, tool specs, what's stubbed |
 | [setup.md](setup.md) | Install, D1 and Vectorize commands, secrets, ingest, deploy |
 | [demo-script.md](demo-script.md) | The 90-second demo and the backup plan |
 | [hackathon-requirements.md](hackathon-requirements.md) | Requirement-by-requirement evidence |
-| [PLAN.md](PLAN.md) | Full startup plan and system design — the source of truth for this build |
+| [PLAN.md](PLAN.md) | Full startup plan and system design — kept verbatim from before the rename, so it still says "PABER" |
 
 ## Repo map
 

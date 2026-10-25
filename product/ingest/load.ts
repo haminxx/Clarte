@@ -66,7 +66,7 @@ async function main(): Promise<void> {
     "wrangler.api.toml",
   ]);
 
-  console.log("\nDone. Check with: curl https://paber-api.<subdomain>.workers.dev/health");
+  console.log("\nDone. Check with: curl https://clarte-api.<subdomain>.workers.dev/health");
 }
 
 main().catch((error) => {

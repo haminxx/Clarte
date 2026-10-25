@@ -1,4 +1,4 @@
--- PABER data model — plan section 6.4.
+-- Clarte data model — plan section 6.4.
 -- Every row in `documents` is one node of the knowledge graph; the Vectorize
 -- index `paber-docs` (cosine) uses `documents.id` as the vector id.
 

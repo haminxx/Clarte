@@ -12,7 +12,7 @@ export async function fetchText(url: string, init?: RequestInit, attempts = 3): 
         ...init,
         headers: {
           // Several of these APIs ask for a contactable user agent.
-          "user-agent": "PABER/0.1 (hackathon project; https://github.com/haminxx/PABER)",
+          "user-agent": "Clarte/0.1 (hackathon project; https://github.com/haminxx/Clarte)",
           accept: "application/json, application/atom+xml, text/xml;q=0.9, */*;q=0.8",
           ...(init?.headers ?? {}),
         },

@@ -63,7 +63,7 @@ export class VoiceClient {
           }
         });
         this.handlers.onStatus("live");
-        // Server VAD handles turn-taking, but PABER speaks first.
+        // Server VAD handles turn-taking, but Clarte speaks first.
         socket.send(JSON.stringify({ type: "response.create" }));
       } catch (error) {
         this.handlers.onStatus("error", `Microphone blocked: ${String(error)}`);

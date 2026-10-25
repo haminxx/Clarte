@@ -55,7 +55,7 @@ export interface IdeaCardData {
 
 export interface TranscriptEntry {
   id: string;
-  role: "user" | "paber" | "system";
+  role: "user" | "clarte" | "system";
   text: string;
 }
 

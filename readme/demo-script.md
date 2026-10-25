@@ -15,20 +15,20 @@
 problem."
 
 **0:10 — Stage 1, Five Whys.** Tap the mic. Say: *"My drone battery dies way too fast."*
-PABER asks why, and keeps asking. Answer honestly for three or four turns — it gets to heat. The stage
+Clarte asks why, and keeps asking. Answer honestly for three or four turns — it gets to heat. The stage
 pill stays on **5 Whys** and no documents are read out, which is the point: it is not answering yet.
 
-**0:35 — The root cause.** PABER says the root cause back: thermal management at high discharge rates.
+**0:35 — The root cause.** Clarte says the root cause back: thermal management at high discharge rates.
 Behind the scenes it has already called `search_tech`, so nodes start lighting up before it says
 anything about them.
 
-**0:45 — Stage 2, Why-How-What.** The pill moves to **Why · How · What**. PABER collects why it matters
+**0:45 — Stage 2, Why-How-What.** The pill moves to **Why · How · What**. Clarte collects why it matters
 and how you would solve it, calls `find_related` with `cross_domain`, and the NASA CubeSat thermal
 louvre patent and an NTRS thermal control report light up and pull the camera. It asks: *"How could you
 apply this satellite technology to your pack?"* — say something concrete, like passive louvres over the
 cell stack.
 
-**1:05 — Stage 3, Debate.** The pill moves to **Debate**. PABER calls `market_evidence`, Gemma 4 turns
+**1:05 — Stage 3, Debate.** The pill moves to **Debate**. Clarte calls `market_evidence`, Gemma 4 turns
 the retrieved patents into objections, and it pushes: *"There is already a NASA patent on deployable
 thermal louvres — what is your edge?"* Defend it once. It concedes that point and moves to the next
 objection.

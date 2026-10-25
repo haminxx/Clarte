@@ -9,8 +9,8 @@ Everything below is copy-pasteable. Commands that need Christian's keys are mark
 - `npx wrangler login`, or `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` in the environment
 
 ```bash
-git clone https://github.com/haminxx/PABER.git
-cd PABER
+git clone https://github.com/haminxx/Clarte.git
+cd Clarte
 cp .env.example .env                       # fill in keys here for the ingest script
 cp product/.dev.vars.example product/.dev.vars
 cp website/.env.example website/.env.local
@@ -22,8 +22,18 @@ Real `.env`, `.dev.vars` and `.env.local` files are gitignored. Never commit a k
 
 ## 1. Cloudflare resources
 
-These already exist for this project (D1 `paber` = `38e1c167-dea2-44ab-9f18-0251c864357c`, Vectorize
-`paber-docs`), and both wrangler configs point at them. To recreate them from scratch:
+These already exist for this project and both wrangler configs point at them:
+
+| Resource | Name | Binding |
+|---|---|---|
+| D1 | `paber` (`38e1c167-dea2-44ab-9f18-0251c864357c`) | `DB` |
+| Vectorize | `paber-docs`, 768 dims, cosine | `VECTORS` |
+| Workers AI | — | `AI` |
+
+**Those two names are deliberately still `paber`.** They were created before the product was renamed
+to Clarte, and a Cloudflare resource name is an identity, not branding — renaming would mean creating
+new stores and reloading every document and vector. The code only ever refers to the bindings, so
+nothing user-facing says `paber`. To recreate them from scratch under any name:
 
 ```bash
 cd product
@@ -119,22 +129,46 @@ curl 'localhost:8787/api/graph?limit=20'
 ```bash
 cd product
 npm run build            # typecheck + dry-run bundle both Workers
-npm run deploy:api       # → https://paber-api.<subdomain>.workers.dev
-npm run deploy:mcp       # → https://paber-mcp.<subdomain>.workers.dev/mcp
+npm run deploy:api       # → https://clarte-api.<subdomain>.workers.dev
+npm run deploy:mcp       # → https://clarte-mcp.<subdomain>.workers.dev/mcp
 
 cd ../website
 # Point the frontend at the deployed API before building.
-echo 'NEXT_PUBLIC_PABER_API=https://paber-api.<subdomain>.workers.dev' > .env.local
+echo 'NEXT_PUBLIC_CLARTE_API=https://api.clarte.io' > .env.local
 npm run build
-npx wrangler pages deploy out --project-name paber
+npx wrangler pages deploy out --project-name clarte-web
 ```
 
-Then allow the Pages origin through CORS by editing `ALLOWED_ORIGINS` in `wrangler.api.toml` and
-redeploying the API Worker:
+`ALLOWED_ORIGINS` in `wrangler.api.toml` already lists `https://clarte.io` and `https://www.clarte.io`
+alongside `http://localhost:3000`. While the domain is still moving to Cloudflare DNS, add the Pages
+preview origin too, then redeploy the API Worker:
 
 ```toml
-ALLOWED_ORIGINS = "http://localhost:3000,https://paber.pages.dev"
+ALLOWED_ORIGINS = "http://localhost:3000,https://clarte.io,https://www.clarte.io,https://clarte-web.pages.dev"
 ```
+
+### Custom domains on clarte.io
+
+Once `clarte.io` is served by Cloudflare DNS, the three hostnames are:
+
+| Hostname | Serves | How |
+|---|---|---|
+| `clarte.io` | the website | Pages project `clarte-web` → Custom domains → add `clarte.io` (and `www`) |
+| `api.clarte.io` | Worker `clarte-api` | uncomment the `[[routes]]` block in `wrangler.api.toml`, then `npm run deploy:api` |
+| `mcp.clarte.io` | Worker `clarte-mcp` | uncomment the `[[routes]]` block in `wrangler.mcp.toml`, then `npm run deploy:mcp` |
+
+Both Worker blocks are committed commented out, because `custom_domain = true` fails the deploy while
+the zone is not yet active on the account:
+
+```toml
+[[routes]]
+pattern = "api.clarte.io"
+custom_domain = true
+```
+
+Wrangler creates the DNS record and the certificate itself; do not pre-create a CNAME for the two
+Worker hostnames. After the Workers answer on their custom domains, set
+`NEXT_PUBLIC_CLARTE_API=https://api.clarte.io`, rebuild the site and redeploy Pages.
 
 Smoke test the MCP server (Streamable HTTP, so `initialize` first, then reuse the session id):
 
@@ -154,7 +188,7 @@ curl -s -X POST localhost:8788/mcp \
 ```json
 {
   "mcpServers": {
-    "paber": { "url": "https://paber-mcp.<subdomain>.workers.dev/mcp" }
+    "clarte": { "url": "https://mcp.clarte.io/mcp" }
   }
 }
 ```

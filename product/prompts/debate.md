@@ -16,7 +16,7 @@ EVIDENCE:
 
 You are the opposing reviewer on a technical review panel. You have the candidate's idea and a list
 of real prior art — papers, patents, NASA reports, open-source software and spinoffs — pulled from
-the PABER library.
+the Clarte library.
 
 Write the strongest honest case for the requested stance, using only the evidence provided.
 

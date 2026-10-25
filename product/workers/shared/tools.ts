@@ -7,7 +7,7 @@ import type { DebateResult, IdeaCard, TechDocument } from "./types";
 import type { ToolName } from "./tools-spec";
 
 /**
- * The four PABER tools (plan 6.3). The MCP server and the voice bridge both call
+ * The four Clarte tools (plan 6.3). The MCP server and the voice bridge both call
  * these functions, so tool behaviour cannot drift between the two entry points.
  *
  * Every result carries `mentionedIds`: the documents the coach just touched, which
@@ -266,7 +266,7 @@ export async function draftIdeaCard(
     problem: userTurns[0]?.text ?? "Untitled problem",
     rootCause: userTurns[userTurns.length - 1]?.text ?? "Not reached yet.",
     solution:
-      input.transcript.filter((entry) => entry.role === "paber").slice(-1)[0]?.text ?? "Not stated yet.",
+      input.transcript.filter((entry) => entry.role === "clarte").slice(-1)[0]?.text ?? "Not stated yet.",
     evidence,
     risk: "Gemma 4 was unavailable, so this card is assembled from the transcript only.",
   };

@@ -1,9 +1,9 @@
 #:schema node_modules/wrangler/config-schema.json
-# PABER MCP server Worker — plan section 6.1, layer 4.
+# Clarte MCP server Worker — plan section 6.1, layer 4.
 # Exposes search_tech / get_document / find_related / market_evidence over MCP,
 # to the voice bridge and to any MCP client (Cursor included).
 
-name = "paber-mcp"
+name = "clarte-mcp"
 main = "workers/mcp/index.ts"
 compatibility_date = "2026-10-25"
 compatibility_flags = ["nodejs_compat"]
@@ -24,16 +24,20 @@ GEMMA_MODEL = "gemma-4-26b-a4b-it"
 GROK_VOICE_MODEL = "grok-voice-latest"
 GROK_VOICE_NAME = "eve"
 TOKEN_TTL_SECONDS = "600"
-ALLOWED_ORIGINS = "http://localhost:3000"
+ALLOWED_ORIGINS = "http://localhost:3000,https://clarte.io,https://www.clarte.io"
 
 [[durable_objects.bindings]]
-name = "PABER_MCP"
-class_name = "PaberMcpAgent"
+name = "CLARTE_MCP"
+class_name = "ClarteMcpAgent"
 
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["PaberMcpAgent"]
+new_sqlite_classes = ["ClarteMcpAgent"]
 
+# Legacy resource names, kept on purpose: the D1 database and Vectorize index were
+# created as `paber` / `paber-docs` before the rename to Clarte. They are resource
+# identities rather than branding, and renaming them would mean recreating and
+# reloading both stores. The code only ever refers to the bindings.
 [[d1_databases]]
 binding = "DB"
 database_name = "paber"
@@ -46,3 +50,9 @@ index_name = "paber-docs" # 768 dims, cosine
 
 [ai]
 binding = "AI"
+
+# Custom domain for mcp.clarte.io, once clarte.io is served by Cloudflare DNS.
+# Uncomment after the zone is active, then redeploy.
+# [[routes]]
+# pattern = "mcp.clarte.io"
+# custom_domain = true

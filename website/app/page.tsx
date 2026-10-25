@@ -143,7 +143,7 @@ export default function Home() {
           setDetail(why);
         },
         onUserTranscript: (text, final) => appendTranscript("user", text, final),
-        onAssistantTranscript: (text, final) => appendTranscript("paber", text, final),
+        onAssistantTranscript: (text, final) => appendTranscript("clarte", text, final),
         onToolCall: handleToolCall,
         onError: (message) => setDetail(message),
       });
@@ -207,7 +207,7 @@ export default function Home() {
     setIdeaCard({
       problem: spoken.find((entry) => entry.role === "user")?.text ?? "Untitled problem",
       rootCause: spoken.filter((entry) => entry.role === "user").slice(-1)[0]?.text ?? "—",
-      solution: spoken.filter((entry) => entry.role === "paber").slice(-1)[0]?.text ?? "—",
+      solution: spoken.filter((entry) => entry.role === "clarte").slice(-1)[0]?.text ?? "—",
       evidence: documents.slice(0, 3).map((document) => ({
         id: document.id,
         title: document.title,
@@ -224,7 +224,7 @@ export default function Home() {
       <div className="graph-layer">
         {graphError ? (
           <div className="graph-loading">
-            Could not reach the PABER API. Start it with <code>npm run dev</code> in{" "}
+            Could not reach the Clarte API. Start it with <code>npm run dev</code> in{" "}
             <code>product/</code>.
           </div>
         ) : (
@@ -234,7 +234,7 @@ export default function Home() {
 
       <header className="top">
         <div className="brand">
-          <h1>PABER</h1>
+          <h1>Clarte</h1>
           <p>
             A library of papers, patents and NASA technology — and a voice coach that makes you
             defend your idea.

@@ -1,5 +1,5 @@
 /**
- * PABER ingest — plan section 7 and Appendix A3/B4.
+ * Clarte ingest — plan section 7 and Appendix A3/B4.
  *
  * Runs locally (Node), never inside a Worker: free Workers get 10 ms CPU and 50
  * subrequests per request, which cannot cover hundreds of API calls plus Gemma 4
@@ -148,7 +148,7 @@ async function main(): Promise<void> {
     Math.max(4, Math.round(QUOTAS[key] * Math.min(1, scale)));
 
   console.log(
-    `PABER ingest — ${args.dryRun ? "dry run (no model calls)" : "live"}${
+    `Clarte ingest — ${args.dryRun ? "dry run (no model calls)" : "live"}${
       args.limit ? `, capped at ${args.limit} documents` : ""
     }`,
   );

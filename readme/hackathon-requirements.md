@@ -1,9 +1,9 @@
-# Hackathon requirements — how PABER meets each one
+# Hackathon requirements — how Clarte meets each one
 
 SpaceXAI Hack Day, UC San Diego, 2026-10-25. Submission deadline 6:30 PM PT on the
 [MLH event page](https://www.mlh.com/events/hacktoberfest-x-spacexai-hack-day-uc-san-diego).
 
-| Requirement | How PABER meets it | Where to look |
+| Requirement | How Clarte meets it | Where to look |
 |---|---|---|
 | **SpaceXAI: Make it Legendary** — use real space data | ~700 documents from NASA T2 patents, spinoffs and software, NASA NTRS reports, and arXiv space categories. Official APIs only, no scraping, with source URL and licence status stored per document. | [`product/ingest/sources/`](../product/ingest/sources/), [`db/migrations/0001_init.sql`](../product/db/migrations/0001_init.sql) |
 | **Required: built with Cursor** | The whole repo was written with Cursor and Cursor cloud agents; the commit history is the record. The MCP server is also connectable to Cursor as a tool, so the library was queried from the editor during the build. | `git log`, [architecture.md](architecture.md#the-four-tools) |

@@ -102,7 +102,7 @@ and the voice bridge can never drift apart.
 The same MCP server can be connected to Cursor during development:
 
 ```json
-{ "mcpServers": { "paber": { "url": "https://paber-mcp.<subdomain>.workers.dev/mcp" } } }
+{ "mcpServers": { "clarte": { "url": "https://mcp.clarte.io/mcp" } } }
 ```
 
 ## Data model (D1 `paber`)
@@ -115,6 +115,11 @@ edges(src, dst, weight, reason, cross_domain, PRIMARY KEY(src, dst))
 sessions(id PK, stage, root_cause, idea_json, created_at)
 mentions(seq PK AUTOINCREMENT, session_id, doc_id, ts)
 ```
+
+The D1 database and the Vectorize index are still named `paber` and `paber-docs`: they were created
+before the product was renamed to Clarte, and a resource name is an identity rather than branding, so
+renaming them would mean recreating and reloading both stores. The code only ever uses the bindings
+`DB`, `VECTORS` and `AI`.
 
 Vectorize `paber-docs` holds one 768-dimension vector per document, with the vector id equal to
 `documents.id`, so a vector hit joins straight back to metadata. `mentions.seq` is the cursor the

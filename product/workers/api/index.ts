@@ -17,7 +17,7 @@ import { STAGES, type IdeaCard, type Stage } from "../shared/types";
 import { mintEphemeralToken, realtimeUrl, sessionConfig } from "./voice";
 
 /**
- * PABER API / tool bridge — plan section 6.1, layer 3.
+ * Clarte API / tool bridge — plan section 6.1, layer 3.
  *
  *   POST /api/session                  mint a Grok Voice token + session config
  *   POST /api/tools/:name              run one tool call coming off the voice socket
@@ -40,7 +40,7 @@ export default {
     try {
       if (path === "/health" || path === "/") {
         return json(env, request, {
-          service: "paber-api",
+          service: "clarte-api",
           documents: await countDocuments(env).catch(() => null),
           voiceConfigured: Boolean(env.XAI_API_KEY),
           gemmaConfigured: Boolean(env.GEMINI_API_KEY),

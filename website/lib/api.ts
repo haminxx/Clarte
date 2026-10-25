@@ -1,7 +1,7 @@
 import type { GraphPayload, IdeaCardData, Stage, VoiceSession } from "./types";
 
-/** Base URL of the PABER API Worker (product/workers/api). */
-export const API_BASE = (process.env.NEXT_PUBLIC_PABER_API ?? "http://localhost:8787").replace(
+/** Base URL of the Clarte API Worker (product/workers/api). */
+export const API_BASE = (process.env.NEXT_PUBLIC_CLARTE_API ?? "http://localhost:8787").replace(
   /\/$/,
   "",
 );

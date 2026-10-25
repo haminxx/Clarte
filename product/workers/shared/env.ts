@@ -1,6 +1,6 @@
 /** Bindings for both Workers. Mirrors wrangler.api.toml / wrangler.mcp.toml. */
 export interface Env {
-  /** D1 `paber` — document metadata, edges, sessions, mentions (plan 6.4). */
+  /** D1 `clarte` — document metadata, edges, sessions, mentions (plan 6.4). */
   DB: D1Database;
   /** Vectorize `paber-docs`, 768 dims, cosine. Vector id === documents.id. */
   VECTORS: VectorizeIndex;
@@ -18,5 +18,5 @@ export interface Env {
   ALLOWED_ORIGINS: string;
 
   /** Only bound in the MCP Worker. */
-  PABER_MCP?: DurableObjectNamespace;
+  CLARTE_MCP?: DurableObjectNamespace;
 }
