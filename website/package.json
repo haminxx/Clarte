@@ -1,0 +1,30 @@
+{
+  "name": "@paber/website",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PABER frontend: 3D knowledge graph, Grok Voice mic, stage indicator, idea card",
+  "license": "MIT",
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "npx serve out",
+    "typecheck": "tsc --noEmit",
+    "lint": "next lint",
+    "deploy": "npm run build && wrangler pages deploy out --project-name paber"
+  },
+  "dependencies": {
+    "next": "^16.4.3",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-force-graph-3d": "^1.29.2",
+    "three": "^0.182.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/three": "^0.182.0",
+    "typescript": "^5.7.2",
+    "wrangler": "^4.42.0"
+  }
+}
