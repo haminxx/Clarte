@@ -1,4 +1,4 @@
-# PABER
+# Clarte
 
 **A technology library for engineers and researchers, plus a voice brainstorming partner that trains how they think.**
 
