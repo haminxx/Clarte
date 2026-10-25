@@ -1,0 +1,48 @@
+#:schema node_modules/wrangler/config-schema.json
+# PABER MCP server Worker — plan section 6.1, layer 4.
+# Exposes search_tech / get_document / find_related / market_evidence over MCP,
+# to the voice bridge and to any MCP client (Cursor included).
+
+name = "paber-mcp"
+main = "workers/mcp/index.ts"
+compatibility_date = "2026-10-25"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+[observability.traces]
+enabled = true
+
+[[rules]]
+type = "Text"
+globs = ["**/*.md"]
+fallthrough = true
+
+[vars]
+GEMMA_MODEL = "gemma-4-26b-a4b-it"
+GROK_VOICE_MODEL = "grok-voice-latest"
+GROK_VOICE_NAME = "eve"
+TOKEN_TTL_SECONDS = "600"
+ALLOWED_ORIGINS = "http://localhost:3000"
+
+[[durable_objects.bindings]]
+name = "PABER_MCP"
+class_name = "PaberMcpAgent"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PaberMcpAgent"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "paber"
+database_id = "38e1c167-dea2-44ab-9f18-0251c864357c"
+migrations_dir = "db/migrations"
+
+[[vectorize]]
+binding = "VECTORS"
+index_name = "paber-docs" # 768 dims, cosine
+
+[ai]
+binding = "AI"

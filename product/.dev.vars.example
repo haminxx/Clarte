@@ -1,0 +1,10 @@
+# Copy to .dev.vars for `wrangler dev`. Never commit the real file.
+# In production these are set with: wrangler secret put <NAME> --config wrangler.api.toml
+
+# xAI — Grok Voice realtime API. Server-side only; the browser gets a minted
+# ephemeral token (POST /api/session), never this key.
+XAI_API_KEY=
+
+# Google AI Studio — Gemma 4 through the Gemini API (reasoning behind the tools).
+GEMINI_API_KEY=
+GEMMA_MODEL=gemma-4-26b-a4b-it

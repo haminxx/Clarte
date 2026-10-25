@@ -1,0 +1,42 @@
+#:schema node_modules/wrangler/config-schema.json
+# PABER API / tool bridge Worker — plan section 6.1, layer 3.
+# Mints Grok Voice ephemeral tokens, executes tool calls, serves graph + mention data.
+
+name = "paber-api"
+main = "workers/api/index.ts"
+compatibility_date = "2026-10-25"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+[observability.traces]
+enabled = true
+
+# Prompts live as markdown (plan section 9) and are bundled as text modules.
+[[rules]]
+type = "Text"
+globs = ["**/*.md"]
+fallthrough = true
+
+[vars]
+# Non-secret configuration only. XAI_API_KEY and GEMINI_API_KEY come from
+# `wrangler secret put` in production and `.dev.vars` locally — never from this file.
+GEMMA_MODEL = "gemma-4-26b-a4b-it"
+GROK_VOICE_MODEL = "grok-voice-latest"
+GROK_VOICE_NAME = "eve"
+TOKEN_TTL_SECONDS = "600"
+ALLOWED_ORIGINS = "http://localhost:3000"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "paber"
+database_id = "38e1c167-dea2-44ab-9f18-0251c864357c"
+migrations_dir = "db/migrations"
+
+[[vectorize]]
+binding = "VECTORS"
+index_name = "paber-docs" # 768 dims, cosine
+
+[ai]
+binding = "AI"

@@ -1,0 +1,37 @@
+{
+  "name": "@paber/product",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PABER service layer: MCP tool server, Grok Voice bridge API, D1 + Vectorize knowledge graph",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.ingest.json",
+    "build": "npm run typecheck && npm run build:api && npm run build:mcp",
+    "build:api": "wrangler deploy --config wrangler.api.toml --dry-run --outdir dist/api",
+    "build:mcp": "wrangler deploy --config wrangler.mcp.toml --dry-run --outdir dist/mcp",
+    "dev": "wrangler dev --config wrangler.api.toml --port 8787",
+    "dev:mcp": "wrangler dev --config wrangler.mcp.toml --port 8788",
+    "deploy:api": "wrangler deploy --config wrangler.api.toml",
+    "deploy:mcp": "wrangler deploy --config wrangler.mcp.toml",
+    "db:migrate:local": "wrangler d1 migrations apply paber --local --config wrangler.api.toml",
+    "db:migrate:remote": "wrangler d1 migrations apply paber --remote --config wrangler.api.toml",
+    "ingest": "tsx ingest/run.ts",
+    "ingest:dry": "tsx ingest/run.ts --dry-run --limit 40",
+    "load": "tsx ingest/load.ts",
+    "load:local": "tsx ingest/load.ts --local",
+    "types": "wrangler types --config wrangler.api.toml"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "agents": "^0.30.1",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261025.1",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "wrangler": "^4.42.0"
+  }
+}

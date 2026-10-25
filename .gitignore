@@ -1,0 +1,36 @@
+# dependencies
+node_modules/
+
+# secrets — never commit real keys
+.env
+.env.local
+.env.*.local
+.dev.vars
+.dev.vars.*
+!.env.example
+!.dev.vars.example
+
+# build output
+dist/
+.next/
+out/
+.open-next/
+.vercel/
+
+# cloudflare
+.wrangler/
+worker-configuration.d.ts
+.mf/
+
+# ingest artifacts (regenerate with `npm run ingest`)
+product/data/*
+!product/data/.gitkeep
+
+# logs / os
+*.log
+npm-debug.log*
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.tsbuildinfo
