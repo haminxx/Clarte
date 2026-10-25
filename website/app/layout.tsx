@@ -1,20 +1,35 @@
 import type { Metadata, Viewport } from "next";
+import { Geist_Mono, Inter_Tight } from "next/font/google";
 import "./globals.css";
 
+const sans = Inter_Tight({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-sans",
+  display: "swap",
+});
+
+const mono = Geist_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-mono",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "Clarte — technology library and voice brainstorming coach",
-  description:
-    "Every paper, patent and NASA technology as a node in one knowledge graph. Talk it through with a voice coach that runs 5 Whys, Why-How-What, and a cited debate.",
+  metadataBase: new URL("https://clarte.io"),
+  title: "Clarte",
+  description: "A voice brainstorm partner backed by a map of papers and patents.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#05060f",
+  themeColor: "#F8F8F7",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+      <body className="font-sans">{children}</body>
     </html>
   );
 }

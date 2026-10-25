@@ -19,10 +19,14 @@
     "deploy": "npm run build && wrangler pages deploy out --project-name clarte-web"
   },
   "dependencies": {
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.61.0",
+    "motion": "^14.6.0",
     "next": "^16.4.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-force-graph-3d": "^1.29.2",
+    "tailwind-merge": "^3.7.0",
     "three": "^0.182.0"
   },
   "devDependencies": {
@@ -30,6 +34,9 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@types/three": "^0.182.0",
+    "autoprefixer": "^10.6.1",
+    "postcss": "^8.5.31",
+    "tailwindcss": "^3.4.19",
     "typescript": "^5.7.2",
     "wrangler": "^4.42.0"
   }

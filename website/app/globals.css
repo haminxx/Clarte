@@ -1,27 +1,144 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Clarte v2 landing. The session screen redefines the dark tokens on .shell. */
 :root {
-  --bg: #05060f;
-  --bg-soft: rgba(12, 16, 32, 0.72);
-  --line: rgba(120, 150, 220, 0.18);
-  --text: #e7ecf8;
-  --muted: #8d9ac0;
-  --accent: #ffb347;
-  --accent-2: #6ec6ff;
-  color-scheme: dark;
+  color-scheme: light;
+  --canvas: #f8f8f7;
+  --ink: #1a1a1a;
+  --hair: rgba(38, 38, 35, 0.1);
+  /* Session tokens, inherited only inside .shell. */
+  --bg: #f8f8f7;
+  --bg-soft: rgba(248, 248, 247, 0.92);
+  --line: rgba(38, 38, 35, 0.1);
+  --text: #1a1a1a;
+  --muted: #7c7c7c;
+  --accent: #1a1a1a;
+  --accent-2: #1a1a1a;
 }
 
 * {
   box-sizing: border-box;
 }
 
-html,
+html {
+  background: var(--canvas);
+  scroll-behavior: smooth;
+  scroll-padding-top: 72px;
+}
+
 body {
   margin: 0;
   padding: 0;
-  height: 100%;
-  background: var(--bg);
-  color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, sans-serif;
-  overflow: hidden;
+  min-height: 100%;
+  background: var(--canvas);
+  color: var(--ink);
+  font-feature-settings: "salt" on, "case" on, "ss01" on;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(26, 26, 26, 0.12);
+}
+
+:focus-visible {
+  outline: 1.5px solid var(--ink);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+@layer components {
+  .page {
+    @apply mx-auto w-full max-w-page px-6 md:px-10 xl:px-0;
+  }
+  .btn {
+    @apply inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded px-3 text-[13px] font-[450] leading-none transition-[background-color,scale] duration-150 active:scale-[.97];
+  }
+  .btn-primary {
+    @apply btn bg-ink text-canvas hover:bg-ink-hover;
+  }
+  .btn-secondary {
+    @apply btn bg-g-100 text-ink hover:bg-g-200;
+  }
+  .label {
+    @apply text-[10px] leading-[1.3] text-g-500;
+    font-feature-settings: "salt" on, "zero" on;
+  }
+  .index {
+    @apply font-mono text-[9px] leading-[1.3] text-g-500;
+  }
+  .h-section {
+    @apply text-[28px] font-normal leading-[1.22] tracking-[-0.03em] text-ink md:text-[32px] xl:text-[36px];
+  }
+  .glass {
+    @apply rounded-xl border border-white/30 bg-white/40 shadow-[0_8px_24px_rgba(0,0,0,.08)] backdrop-blur-xl;
+  }
+  .glass-dark {
+    @apply rounded-xl border border-white/10 bg-black/25 backdrop-blur-xl;
+  }
+}
+
+.feather {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 520 520' preserveAspectRatio='none'%3E%3Cdefs%3E%3Cfilter id='f' x='-104' y='-104' width='728' height='728' filterUnits='userSpaceOnUse'%3E%3CfeGaussianBlur stdDeviation='16'/%3E%3C/filter%3E%3C/defs%3E%3Crect x='40' y='40' width='440' height='440' rx='120' filter='url(%23f)'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 520 520' preserveAspectRatio='none'%3E%3Cdefs%3E%3Cfilter id='f' x='-104' y='-104' width='728' height='728' filterUnits='userSpaceOnUse'%3E%3CfeGaussianBlur stdDeviation='16'/%3E%3C/filter%3E%3C/defs%3E%3Crect x='40' y='40' width='440' height='440' rx='120' filter='url(%23f)'/%3E%3C/svg%3E");
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+.rail {
+  --g: 1.5rem;
+  padding-inline: max(var(--g), calc((100vw - 1220px) / 2));
+  scroll-padding-inline: max(var(--g), calc((100vw - 1220px) / 2));
+}
+@media (min-width: 768px) {
+  .rail {
+    --g: 2.5rem;
+  }
+}
+
+.arrow-item {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+}
+.arrow-item .inner {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+}
+.arrow-item .arr {
+  display: inline-block;
+  width: 1em;
+  margin-right: -1em;
+  text-align: right;
+  font-size: 0.85em;
+  opacity: 0;
+  filter: blur(4px);
+  transition: opacity 0.3s, filter 0.3s;
+}
+.arrow-item:hover .inner {
+  transform: translateX(calc(-1em + 2px));
+}
+.arrow-item:hover .arr {
+  opacity: 1;
+  filter: blur(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .arrow-item:hover .inner {
+    transform: none;
+  }
 }
 
 button {
@@ -46,10 +163,20 @@ code {
 }
 
 .shell {
+  --bg: #05060f;
+  --bg-soft: rgba(12, 16, 32, 0.72);
+  --line: rgba(120, 150, 220, 0.18);
+  --text: #e7ecf8;
+  --muted: #8d9ac0;
+  --accent: #ffb347;
+  --accent-2: #6ec6ff;
+  color-scheme: dark;
   position: relative;
   height: 100dvh;
   width: 100vw;
   overflow: hidden;
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, sans-serif;
   background:
     radial-gradient(900px 600px at 20% 10%, rgba(60, 90, 180, 0.22), transparent 60%),
     radial-gradient(700px 500px at 85% 80%, rgba(180, 90, 40, 0.16), transparent 60%),
