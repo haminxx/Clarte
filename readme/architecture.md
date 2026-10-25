@@ -1,156 +1,226 @@
 # Architecture
 
+This is the v3 design in [PLAN.md](PLAN.md). The website and the API Worker share one set of paths,
+listed below. Voice is Vapi. Grok Imagine runs server-side, only after the idea is confirmed, and
+only for a Google-signed-in user with an encrypted xAI key.
+
 ## Layers
 
 ```mermaid
 flowchart TB
     subgraph browser["website/ — Next.js on Cloudflare Pages"]
-        UI["Mic button · 3D graph · stage bar · idea card"]
-        VC["VoiceClient<br/>lib/voice-client.ts"]
+        UI["Mic · 3D graph · transcript · Sources · stage · idea card · visuals"]
+        VAPI["Vapi Web SDK<br/>@vapi-ai/web"]
     end
 
-    subgraph voice["Grok Voice realtime API"]
-        GV["wss://api.x.ai/v1/realtime<br/>grok-voice-latest<br/>conversation + tool calling"]
+    subgraph voice["Vapi assistant — Clarte Coach"]
+        COACH["transcriber + dialogue LLM + voice<br/>system prompt = prompts/coach.md<br/>five Function tools"]
     end
 
-    subgraph api["product/workers/api — API / tool bridge Worker"]
-        TOK["POST /api/session<br/>mints ephemeral token"]
-        BRIDGE["POST /api/tools/:name<br/>runs a tool, records mentions"]
-        DATA["GET /api/graph<br/>GET /api/session/:id/mentions"]
+    subgraph api["product/workers/api — clarte-api"]
+        HOOK["POST /vapi/tools"]
+        HTTP["session, graph, citations, visualize, report"]
+        AUTH["Google OAuth + BYOK"]
     end
 
-    subgraph mcp["product/workers/mcp — MCP server Worker"]
-        TOOLS["search_tech · get_document<br/>find_related · market_evidence"]
+    subgraph mcp["product/workers/mcp — clarte-mcp"]
+        TOOLS["search_tech · get_document · find_related<br/>market_evidence · visualize_idea"]
     end
 
-    subgraph reason["Reasoning"]
-        GEMMA["Gemma 4 — gemma-4-26b-a4b-it<br/>via the Gemini API"]
+    subgraph reason["Reasoning and visuals"]
+        GEMMA["Gemma 4 — gemma-4-26b-a4b-it<br/>Gemini API"]
+        IMAGINE["Grok Imagine<br/>POST https://api.x.ai/v1/images/generations"]
     end
 
     subgraph data["Cloudflare data layer"]
-        D1[("D1 'paber'<br/>documents · edges<br/>sessions · mentions")]
-        VEC[("Vectorize 'paber-docs'<br/>768 dims, cosine")]
+        D1[("D1 database paber")]
+        VEC[("Vectorize paber-docs<br/>768 dims, cosine")]
         AI["Workers AI<br/>@cf/baai/bge-base-en-v1.5"]
     end
 
-    INGEST["product/ingest — local Node script<br/>NASA T2 · NTRS · arXiv · Europe PMC"]
+    INGEST["product/ingest — local Node script"]
 
-    UI --> VC
-    VC <-->|"WebSocket, ephemeral token"| GV
-    GV -->|"response.function_call_arguments.done"| VC
-    VC -->|"tool call"| BRIDGE
-    VC -->|"function_call_output"| GV
-    UI --> TOK
-    UI --> DATA
-    BRIDGE --> TOOLS
+    UI --> VAPI
+    VAPI <--> COACH
+    COACH -->|"tool-calls webhook"| HOOK
+    HOOK --> TOOLS
+    UI --> HTTP
+    UI --> AUTH
+    HTTP --> TOOLS
+    AUTH --> D1
     TOOLS --> GEMMA
+    TOOLS --> IMAGINE
     TOOLS --> VEC
     TOOLS --> D1
     TOOLS --> AI
-    DATA --> D1
-    INGEST -->|"wrangler d1 execute"| D1
-    INGEST -->|"wrangler vectorize insert"| VEC
+    HTTP --> D1
+    INGEST --> D1
+    INGEST --> VEC
     INGEST --> GEMMA
-    INGEST -->|"Workers AI REST"| AI
+    INGEST --> AI
 ```
 
-## Why Grok runs the conversation and Gemma runs the tools
+Targets: website https://clarte.io (Cloudflare Pages project `clarte-web`), API
+https://api.clarte.io (Worker `clarte-api`), MCP https://mcp.clarte.io (Worker `clarte-mcp`). Until
+DNS for `clarte.io` is live, the same deploys answer on `*.pages.dev` and `*.workers.dev`.
 
-Grok Voice is a single realtime agent: speech in, conversation, speech out, with tool calling. Its
-internal model cannot be swapped for Gemma. So **Grok is the conversational brain** and **Gemma 4 is
-the reasoning LLM behind the tools** — it writes every document summary and domain tag at ingest time,
-the one-line "why these connect" reason in `find_related`, and the three cited objections in
-`market_evidence`. Both the Grok requirement and the Gemma requirement are met by work that actually
-happens, not by a token call.
+## Who does what
 
-## Request paths
+**Vapi** is the voice layer: speech-to-text, the dialogue model, text-to-speech, and the decision to
+call a tool. **Gemma 4** is the reasoning model behind the tools: summaries, tags, cross-domain
+reasons, debate counter-arguments, and the prompts sent to Imagine. **Grok Imagine** turns a
+confirmed idea card into images. The browser never holds the Imagine key, the Vapi private key, or
+the Vapi server secret.
 
-**Starting a session.** The browser posts to `/api/session`. The Worker inserts a `sessions` row,
-calls `POST https://api.x.ai/v1/realtime/client_secrets` with the server-side `XAI_API_KEY`, and
-returns a short-lived token plus the full `session.update` payload (system prompt from
-`prompts/coach.md`, the four tool schemas, 24 kHz PCM audio, server VAD). The API key never leaves the
-Worker; the browser authenticates with the `xai-client-secret.<token>` WebSocket subprotocol.
+## One conversational turn
 
-**A tool call.** Grok emits `response.function_call_arguments.done`. The browser forwards name and
-arguments to `/api/tools/:name`, which runs the shared implementation, writes the touched document ids
-into `mentions`, and returns the result. The browser sends it back as a `function_call_output` item,
-and only after every outstanding call has answered does it send one `response.create` — the documented
-requirement for parallel tool calls.
+1. The browser starts a call with `new Vapi(NEXT_PUBLIC_VAPI_PUBLIC_KEY).start(NEXT_PUBLIC_VAPI_ASSISTANT_ID)` and passes the Clarte `sessionId` in call metadata.
+2. Vapi transcribes, and its model decides to call a tool.
+3. Vapi POSTs `{ message: { type: "tool-calls", toolCallList } }` to `POST /vapi/tools`.
+4. The Worker checks the `x-vapi-secret` header, runs the MCP tool, and writes `mentions` and `citations`.
+5. The Worker responds HTTP 200 with `{ results: [{ toolCallId, result }] }`. `result` is one compact JSON string. On a tool failure the item is `{ toolCallId, error }` and has no `result`.
+6. Vapi speaks the answer. During the call the website reads transcript and tool payloads from the Vapi client `message` events. It also polls `GET /api/session/:id/mentions?since=` for graph highlights and `GET /api/session/:id/citations` for the Sources panel, so a tool call from curl or Cursor updates the page too.
 
-**The idea card.** `POST /api/session/:id/idea-draft` takes the transcript and the ids of the evidence
-on screen, has Gemma 4 write the card, stores it in `sessions.idea_json`, and returns it. If Gemma is
-unavailable the Worker assembles the card from the first and last user turns and says so in the risk
-field, so a demo never ends on an error.
+PLAN.md's data-flow sketch also names a session events poll. The website and the Worker use the `mentions` and `citations` paths in the next section.
 
-**Highlighting.** Two paths, on purpose. The voice path sets highlights directly from the tool
-response. The website also polls `/api/session/:id/mentions?since=<seq>`, so a tool call made from
-anywhere else — an MCP client, `curl`, a second tab — still lights up the graph.
+## HTTP API
 
-## The four tools
+Base URL for the website: `NEXT_PUBLIC_CLARTE_API`. CORS allows `https://clarte.io`,
+`http://localhost:3000`, and the Pages preview origin, with credentials.
 
-Defined once in [`workers/shared/tools-spec.ts`](../product/workers/shared/tools-spec.ts) and
-implemented once in [`workers/shared/tools.ts`](../product/workers/shared/tools.ts), so the MCP server
-and the voice bridge can never drift apart.
+### Voice webhook
+
+`POST /vapi/tools`
+
+- Header `x-vapi-secret` must equal `VAPI_SERVER_SECRET`. A missing or wrong secret is HTTP 401. That is the only non-200 response on this route. If `VAPI_SERVER_SECRET` is unset, accept the call so local dev still works, and log a warning.
+- Handle `message.type === "tool-calls"`. Any other type returns `{ results: [] }`.
+- Each item in `message.toolCallList` (also accept `message.toolCalls`) has `id`, `function.name`, and `function.arguments` (object or JSON string).
+- Session id: `message.call.metadata.sessionId`, else assistant variable `sessionId`. Create the session row if needed.
+- Document objects inside the JSON `result` always include `id`, `title`, `type`, `source`, and `url`.
+
+`visualize_idea` takes an optional `session_id` (otherwise the call metadata) and `kinds`: `concept`,
+`system_diagram`, `paper_figure`. The Worker refuses unless `IMAGINE_ENABLED` is true, the session
+user is signed in, and `user_keys` has an xAI key. The refusal is a tool `error` string the assistant
+can speak, not an HTTP error.
+
+### Session, graph, citations
+
+| Method and path | Body / query | Response |
+|---|---|---|
+| `POST /api/session` | `{ sessionId? }` | `{ sessionId, stage }` |
+| `POST /api/chat` | `{ sessionId, message }` | `{ reply, stage, citations, highlight }` — text-mode coach, one turn, no Vapi |
+| `POST /api/tools/:name` | same tool args the webhook uses | tool result plus `citations` (text mode and curl) |
+| `GET /api/session/:id` | | stage, rootCause, idea, vapiCallId |
+| `POST /api/session/:id/stage` | `{ stage }` where stage is `five_whys`, `why_how_what`, `debate`, or `visualize` | |
+| `POST /api/session/:id/root-cause` | | |
+| `POST /api/session/:id/idea` | | |
+| `GET /api/session/:id/mentions?since=` | | highlight cursor |
+| `GET /api/session/:id/citations` | | `{ citations: [{ docId, url, title, source, type, stage }] }` |
+| `GET /api/session/:id/visuals` | | `{ visuals: [{ id, kind, prompt, imageUrl, model }] }` |
+| `POST /api/session/:id/visualize` | `{ kinds }` | HTTP 200 `{ visuals }` or `{ error: "sign_in_required" \| "key_required" \| "disabled" }` |
+| `GET /api/session/:id/report` | | `text/markdown` idea card, references, and visual URLs |
+| `GET /api/graph?limit=` | | nodes and links |
+| `GET /health` | | `{ service: "clarte-api", documents, vapiConfigured, gemmaConfigured, imagineEnabled }` |
+
+Anonymous callers can use the graph, voice, tools, and citations. Imagine and `POST /me/xai-key`
+require a signed-in user.
+
+### Google sign-in and the xAI key
+
+| Method and path | Behavior |
+|---|---|
+| `GET /auth/google` | Redirect to Google. `redirect_uri` is `GOOGLE_REDIRECT_URI` or `{API_URL}/auth/callback/google`. |
+| `GET /auth/callback/google` | Set cookie `clarte_session`: HttpOnly, Secure (off on localhost), SameSite=Lax. `Domain=.clarte.io` only when the request host is `clarte.io` or `api.clarte.io`. Otherwise a host-only cookie. |
+| `POST /auth/logout` | Clear the cookie. |
+| `GET /me` | `{ user: { id, email, name } \| null, xaiKey: { connected, last4 } }`. Never return the key or its ciphertext. |
+| `POST /me/xai-key` | `{ apiKey }`, session required. AES-GCM with `KEY_ENCRYPTION_KEY`. Store `last4`. Response `{ connected: true, last4 }`. |
+| `DELETE /me/xai-key` | Remove the row. |
+
+The OAuth client lives in the Google Cloud project "PABER". Authorized redirect URIs:
+`https://clarte.io/auth/callback/google` and `http://localhost:8787/auth/callback/google`. Authorized
+JavaScript origin: `https://clarte.io`. The pages `clarte.io/auth/*` are served by `clarte-api`
+through a Worker route. Login is optional for brainstorming. It is required only to visualize.
+
+The user's xAI key is sent once over HTTPS, encrypted in the Worker, stored in D1, decrypted only
+inside the Worker for the Imagine call, and never logged. A dev `XAI_API_KEY` is for tests. Session
+visuals use the signed-in user's key.
+
+## The five tools
+
+Defined for both the MCP server and the Vapi webhook so the two cannot drift. Vapi Function tools use
+`type: "function"`, JSON-schema parameters matching this table, and
+`server.url = https://api.clarte.io/vapi/tools` (one URL; the Worker dispatches on `function.name`).
+Until DNS is live, `server.url` is `https://<clarte-api>.workers.dev/vapi/tools`.
 
 | Tool | Input | Output | Internals |
 |---|---|---|---|
-| `search_tech` | `query`, `limit` | nodes with id, title, source, summary, score | embed query with Workers AI, query Vectorize, join D1; falls back to keyword search |
-| `get_document` | `id` | summary, domain tags, source URL, licence status | D1 lookup |
-| `find_related` | `id`, `cross_domain`, `limit` | neighbour nodes and why they connect | `edges` table, other-domain filter, Gemma writes the reason; live nearest-neighbour fallback when a node has no edges yet |
-| `market_evidence` | `idea`, `limit` | prior art plus three cited objections | `search_tech` then the Gemma 4 debate prompt |
+| `search_tech` | `query`, `limit` | nodes: id, title, source, summary, score, plus `url` and `type` | embed the query, Vectorize search, join D1; keyword fallback if Vectorize is unreachable |
+| `get_document` | `id` | summary, domain tags, source URL, license status | D1 lookup |
+| `find_related` | `id`, `cross_domain` | neighbor nodes and why they connect | `edges`, other-domain filter; Gemma writes a one-line reason |
+| `market_evidence` | `idea`, `limit` | patents and papers, each with `url`, and 3 counter-arguments | `search_tech` plus the Gemma 4 debate prompt |
+| `visualize_idea` | `session_id`, `kinds` (`concept`, `system_diagram`, `paper_figure`) | image URLs and the prompts used | gated as above; Gemma writes prompts from the idea card; Worker calls Grok Imagine; rows go to `visuals` |
 
-The same MCP server can be connected to Cursor during development:
+A compact string returned to Vapi looks like
+`{"docs":[{"id":"...","title":"...","type":"patent","source":"NASA T2","url":"https://technology.nasa.gov/patent/..."}]}`.
+
+Cursor can use the same MCP server during development:
 
 ```json
 { "mcpServers": { "clarte": { "url": "https://mcp.clarte.io/mcp" } } }
 ```
 
-## Data model (D1 `paber`)
+Use the `*.workers.dev` MCP URL until `mcp.clarte.io` resolves.
+
+## Data model
+
+D1 database name: `paber`. Vectorize index name: `paber-docs` (768 dimensions, cosine). Each vector
+id equals `documents.id`. Bindings: `DB`, `VECTORS`, `AI`. Embeddings are Workers AI
+`@cf/baai/bge-base-en-v1.5`.
 
 ```sql
-documents(id PK, source, source_id, type,        -- paper|patent|report|software|spinoff
-          title, abstract, summary, domains,     -- domains is a JSON array
-          url, published, center, license_status, created_at)
-edges(src, dst, weight, reason, cross_domain, PRIMARY KEY(src, dst))
-sessions(id PK, stage, root_cause, idea_json, created_at)
-mentions(seq PK AUTOINCREMENT, session_id, doc_id, ts)
+documents(id TEXT PK, source TEXT, source_id TEXT, type TEXT,  -- paper|patent|report|software|spinoff
+          title TEXT, abstract TEXT, summary TEXT, domains TEXT,  -- JSON array
+          url TEXT,  -- required, canonical source page
+          published TEXT, center TEXT, license_status TEXT, created_at TEXT)
+edges(src TEXT, dst TEXT, weight REAL, reason TEXT, cross_domain INTEGER, PRIMARY KEY(src, dst))
+sessions(id TEXT PK, stage TEXT, root_cause TEXT, idea_json TEXT, vapi_call_id TEXT, created_at TEXT)
+mentions(session_id TEXT, doc_id TEXT, ts TEXT)
+citations(session_id TEXT, doc_id TEXT, url TEXT, title TEXT, stage TEXT, ts TEXT,
+          PRIMARY KEY(session_id, doc_id))
+visuals(id TEXT PK, session_id TEXT, kind TEXT, prompt TEXT, image_url TEXT, model TEXT, created_at TEXT)
+          -- kind: concept|system_diagram|paper_figure|video
+users(id TEXT PK, google_sub TEXT UNIQUE, email TEXT, name TEXT, created_at TEXT)
+auth_sessions(id TEXT PK, user_id TEXT, expires_at TEXT)
+user_keys(user_id TEXT, provider TEXT, ciphertext TEXT, iv TEXT, last4 TEXT, created_at TEXT,
+          PRIMARY KEY(user_id, provider))  -- provider = 'xai'
 ```
 
-The D1 database and the Vectorize index are still named `paber` and `paber-docs`: they were created
-before the product was renamed to Clarte, and a resource name is an identity rather than branding, so
-renaming them would mean recreating and reloading both stores. The code only ever uses the bindings
-`DB`, `VECTORS` and `AI`.
+Edges come from each document's top 5 nearest documents. `cross_domain` is set when the domain tags
+differ. Imagine image URLs may be temporary; the demo keeps `image_url` and can cache the image in
+the browser. Do not enable R2 to store them. Cloudflare stays on the free plan.
 
-Vectorize `paber-docs` holds one 768-dimension vector per document, with the vector id equal to
-`documents.id`, so a vector hit joins straight back to metadata. `mentions.seq` is the cursor the
-website polls with; everything else follows plan section 6.4 exactly.
-
-Edges are built during ingest: each document's top five cosine neighbours, with `cross_domain = 1`
-when the two documents share no domain tag. Those cross-domain edges are what produce "satellite
-thermal control → drone battery cooling".
+The database id `38e1c167-dea2-44ab-9f18-0251c864357c` is not a secret. It is in
+`product/wrangler.api.toml` and `product/wrangler.mcp.toml`.
 
 ## Why ingest runs locally
 
-Free Workers get 10 ms CPU and 50 subrequests per request. Fetching hundreds of documents and then
-calling Gemma 4 and an embedding model per document does not fit in one invocation, and splitting it
-across invocations would be a queue for no reason on demo day. So
-[`product/ingest/run.ts`](../product/ingest/run.ts) runs once in Node and writes artifacts into
-`product/data/`:
+Free Workers get 10 ms of CPU and 50 subrequests per request. Fetching hundreds of documents and then
+calling Gemma 4 and an embedding model for each one does not fit in one invocation.
+[`product/ingest/run.ts`](../product/ingest/run.ts) runs once in Node and writes `product/data/`:
 
-- `sql/documents-*.sql` and `sql/edges-*.sql` — chunked `INSERT OR REPLACE` statements for `wrangler d1 execute`
-- `vectors.ndjson` — one `{id, values, metadata}` line per document for `wrangler vectorize insert`
-- `documents.json` and `manifest.json` — for inspection and counts
+- `sql/documents-*.sql` and `sql/edges-*.sql` for `wrangler d1 execute`
+- `vectors.ndjson` for `wrangler vectorize insert`
+- `documents.json` and `manifest.json` for inspection
 
-[`product/ingest/load.ts`](../product/ingest/load.ts) applies the migration and pushes both.
+[`product/ingest/load.ts`](../product/ingest/load.ts) applies the migration and pushes both. Official
+APIs only. Every document stores its source URL and license status.
 
-## Degradation without keys
-
-Everything builds and runs with no keys at all, which is why the scaffold can be verified before
-Christian's keys arrive.
+## What still works with empty keys
 
 | Missing | What happens |
 |---|---|
-| `XAI_API_KEY` | `/api/session` returns `stubbed: true` with an empty token. The UI disables the mic, says why, and the text-mode box still drives the same tools and highlights. |
-| `GEMINI_API_KEY` | Ingest falls back to a first-two-sentences summary and regex domain tags. `market_evidence` still returns real, cited objections built from retrieval alone, flagged in its `gaps` field. |
-| Cloudflare credentials during ingest | Embeddings fall back to a deterministic hashed bag-of-words vector of the same 768 dimensions, so Vectorize round-trips and edges still build. Semantically weak, structurally correct. |
-| Vectorize unreachable (local dev) | `search_tech` catches the failure and answers from a scored D1 `LIKE` search. |
+| Vapi public key, assistant id, or server secret | The mic stays off. `POST /api/chat` still runs one coach turn and the same tools. With `VAPI_SERVER_SECRET` unset, `POST /vapi/tools` accepts calls and logs a warning. |
+| `GEMINI_API_KEY` | Ingest uses a first-two-sentences summary and simple domain tags. `market_evidence` still returns retrieved documents and says the objections were not model-written. |
+| Cloudflare credentials during ingest | Embeddings fall back to a deterministic 768-dimension vector so the load still round-trips. Search quality is weak until a real embed is loaded. |
+| Vectorize unreachable | `search_tech` answers from a scored D1 `LIKE` search. |
+| Imagine flag, Google session, or user xAI key | `visualize_idea` returns a spoken tool error. `POST /api/session/:id/visualize` returns HTTP 200 with `sign_in_required`, `key_required`, or `disabled`. The idea card and its source URLs still render. |
