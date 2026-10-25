@@ -23,7 +23,6 @@ export default function Hero() {
         ) : (
           <video className="h-full w-full object-cover" autoPlay muted loop playsInline preload="metadata" poster={POSTER}
             style={{ filter: 'brightness(.72) saturate(.75)' }}>
-            <source src="/video/hero-blueprint.webm" type="video/webm" />
             <source src="/video/hero-blueprint.mp4" type="video/mp4" />
           </video>
         )}
