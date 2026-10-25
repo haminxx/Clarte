@@ -422,7 +422,7 @@ An additional revenue stream is **usage-based MCP API billing**: other AI agents
 
 ## Appendix A: Data and patent hub (research by Prob & Sol, 2026-10-25 2:45 PM PT)
 
-The full inventory (endpoints, limits, terms, and source links per source) is in `data_sources.md`. This appendix summarizes only what the build needs. **The DB is Cloudflare D1 + Vectorize**, with embeddings of **768 dimensions** (Workers AI `@cf/baai/bge-base-en-v1.5`). Ingest only through official APIs, never scraping. Store `source`, `source_url`, and `license_note` on every record.
+The full inventory (endpoints, limits, terms, and source links per source) is in [data_sources.md](data_sources.md). This appendix summarizes only what the build needs. **The DB is Cloudflare D1 + Vectorize**, with embeddings of **768 dimensions** (Workers AI `@cf/baai/bge-base-en-v1.5`). Ingest only through official APIs, never scraping. Store `source`, `source_url`, and `license_note` on every record.
 
 ### A1. Live check results today
 
