@@ -2,7 +2,7 @@
   "name": "@clarte/website",
   "version": "0.1.0",
   "private": true,
-  "description": "Clarte frontend: 3D knowledge graph, Grok Voice mic, stage indicator, idea card",
+  "description": "Clarte frontend: landing page and session with Vapi voice or text chat",
   "license": "MIT",
   "homepage": "https://clarte.io",
   "repository": {
@@ -19,6 +19,7 @@
     "deploy": "npm run build && wrangler pages deploy out --project-name clarte-web"
   },
   "dependencies": {
+    "@vapi-ai/web": "^3.0.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.61.0",
     "motion": "^14.6.0",

@@ -22,7 +22,7 @@ import type {
   TechDocument,
   TranscriptEntry,
 } from "@/lib/types";
-import { VoiceClient, type VoiceStatus } from "@/lib/voice-client";
+import { readVoiceConfig, VOICE_UNAVAILABLE, VoiceClient, type VoiceStatus } from "@/lib/voice-client";
 
 // react-force-graph-3d touches WebGL on import, so it is client-only.
 const Graph3D = dynamic(() => import("@/components/Graph3D"), {
@@ -123,19 +123,20 @@ export default function Home() {
     [appendTranscript, sessionId, stage],
   );
 
+  useEffect(() => {
+    if (!readVoiceConfig()) setDetail(VOICE_UNAVAILABLE);
+  }, []);
+
   const start = useCallback(async () => {
+    if (!readVoiceConfig()) {
+      setStatus("idle");
+      setDetail(VOICE_UNAVAILABLE);
+      return;
+    }
     try {
       setStatus("connecting");
       const session = await startSession(sessionId ?? undefined);
       setSessionId(session.sessionId);
-
-      if (session.stubbed) {
-        setStatus("error");
-        setDetail(
-          "The API Worker has no XAI_API_KEY, so voice is disabled. Text mode below still drives the graph.",
-        );
-        return;
-      }
 
       const client = new VoiceClient({
         onStatus: (next, why) => {
@@ -144,17 +145,16 @@ export default function Home() {
         },
         onUserTranscript: (text, final) => appendTranscript("user", text, final),
         onAssistantTranscript: (text, final) => appendTranscript("clarte", text, final),
-        onToolCall: handleToolCall,
         onError: (message) => setDetail(message),
       });
 
       clientRef.current = client;
-      await client.connect(session);
+      await client.connect(session.sessionId);
     } catch (error) {
       setStatus("error");
-      setDetail(String(error));
+      setDetail(error instanceof Error ? error.message : "Voice did not start. Text chat still works.");
     }
-  }, [appendTranscript, handleToolCall, sessionId]);
+  }, [appendTranscript, sessionId]);
 
   const stop = useCallback(() => {
     clientRef.current?.disconnect();
