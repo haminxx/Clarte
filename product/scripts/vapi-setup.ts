@@ -1,24 +1,43 @@
 /**
- * Create or update the Vapi assistant "Clarte Coach" and its five Function tools.
+ * Attach the five Clarte Function tools to the live Vapi assistant.
+ *
+ * Does not create an assistant or a phone number. Does not change the
+ * assistant's name, voice, transcriber, model, or system prompt.
  *
  *   cd product
  *   # VAPI_PRIVATE_KEY in the environment, product/.dev.vars, or ../.env
  *   npm run vapi:setup
  *   npm run vapi:setup -- --server-url https://clarte-api.<subdomain>.workers.dev
  *
- * The tool server URL is API_URL/vapi/tools, else the clarte-api workers.dev host.
+ * Tool server URL: --server-url, else the URL already on one of the five tools,
+ * else API_URL/vapi/tools, else the clarte-api workers.dev host.
  * VAPI_SERVER_SECRET is sent as the x-vapi-secret header. The private key is never printed.
  */
-import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { readFile } from "node:fs/promises";
 import { TOOL_DEFINITIONS } from "../workers/shared/tools-spec";
 
 const VAPI = "https://api.vapi.ai";
-const ASSISTANT_NAME = "Clarte Coach";
-const FIRST_MESSAGE = "I'm Clarte. Tell me the problem you're stuck on, in one sentence.";
+const LIVE_ASSISTANT_ID = "f7cef3eb-dd90-4b34-8a21-690c27e99393";
+
+/** Model fields copied back unchanged so a nested PATCH cannot drop the prompt. */
+const MODEL_FIELDS = [
+  "provider",
+  "model",
+  "messages",
+  "temperature",
+  "emotionRecognitionEnabled",
+  "maxTokens",
+  "numFastTurns",
+  "knowledgeBase",
+] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {};
 }
 
 async function loadEnvFile(path: URL): Promise<void> {
@@ -75,10 +94,24 @@ function toolNameOf(tool: Record<string, unknown>): string {
   return typeof fn?.name === "string" ? fn.name : "";
 }
 
-async function resolveServerUrl(): Promise<string> {
+function serverUrlOf(tool: Record<string, unknown>): string {
+  const server = asRecord(tool.server);
+  return typeof server.url === "string" ? server.url : "";
+}
+
+async function resolveServerUrl(existingTools: Record<string, unknown>[]): Promise<string> {
   const flag = process.argv.indexOf("--server-url");
   const fromFlag = flag >= 0 ? process.argv[flag + 1] : "";
-  const base = (fromFlag || process.env.API_URL || "").replace(/\/$/, "").replace(/\/vapi\/tools$/, "");
+  if (fromFlag) return fromFlag.replace(/\/$/, "").replace(/\/vapi\/tools$/, "") + "/vapi/tools";
+
+  const names = new Set<string>(TOOL_DEFINITIONS.map((tool) => tool.name));
+  for (const tool of existingTools) {
+    if (!names.has(toolNameOf(tool))) continue;
+    const url = serverUrlOf(tool);
+    if (url) return url;
+  }
+
+  const base = (process.env.API_URL || "").replace(/\/$/, "").replace(/\/vapi\/tools$/, "");
   if (base) return `${base}/vapi/tools`;
 
   const account = process.env.CLOUDFLARE_ACCOUNT_ID;
@@ -94,11 +127,9 @@ async function resolveServerUrl(): Promise<string> {
       if (subdomain) return `https://clarte-api.${subdomain}.workers.dev/vapi/tools`;
     }
   }
-  throw new Error("Set API_URL or pass --server-url https://clarte-api.<subdomain>.workers.dev");
-}
-
-function visiblePrompt(markdown: string): string {
-  return markdown.replace(/<!--[\s\S]*?-->/g, "").trim();
+  throw new Error(
+    "No existing tool server URL. Set API_URL or pass --server-url https://clarte-api.<subdomain>.workers.dev",
+  );
 }
 
 async function main(): Promise<void> {
@@ -110,14 +141,22 @@ async function main(): Promise<void> {
     throw new Error("VAPI_PRIVATE_KEY is not set. Put it in the environment, product/.dev.vars, or ../.env.");
   }
 
-  const serverUrl = await resolveServerUrl();
-  const secret = process.env.VAPI_SERVER_SECRET ?? "";
-  if (!secret) {
-    console.warn("VAPI_SERVER_SECRET is unset. Tools will not send x-vapi-secret. The Worker accepts that only for local dev.");
+  const fromEnv = process.env.VAPI_ASSISTANT_ID?.trim();
+  if (fromEnv && fromEnv !== LIVE_ASSISTANT_ID) {
+    throw new Error(
+      `Refusing to patch ${fromEnv}. This script only updates the live assistant ${LIVE_ASSISTANT_ID}.`,
+    );
   }
 
-  const prompt = visiblePrompt(await readFile(new URL("prompts/coach.md", `file://${productDir}`), "utf8"));
+  const secret = process.env.VAPI_SERVER_SECRET ?? "";
+  if (!secret) {
+    console.warn(
+      "VAPI_SERVER_SECRET is unset. Tools will not send x-vapi-secret. The Worker accepts that only for local dev.",
+    );
+  }
+
   const existingTools = asArray(await vapi("/tool"));
+  const serverUrl = await resolveServerUrl(existingTools);
   const toolIds: string[] = [];
 
   for (const definition of TOOL_DEFINITIONS) {
@@ -148,42 +187,37 @@ async function main(): Promise<void> {
     console.log(`${id ? "updated" : "created"} tool ${definition.name} ${savedId}`);
   }
 
-  const assistantBody = {
-    name: ASSISTANT_NAME,
-    firstMessage: FIRST_MESSAGE,
-    model: {
-      provider: process.env.VAPI_MODEL_PROVIDER || "openai",
-      model: process.env.VAPI_MODEL || "gpt-4o-mini",
-      messages: [{ role: "system", content: prompt }],
-      toolIds,
-    },
-    voice: { provider: "vapi", voiceId: process.env.VAPI_VOICE_ID || "Elliot" },
-    transcriber: { provider: "deepgram", model: "nova-2", language: "en" },
-    clientMessages: ["transcript", "tool-calls"],
-    metadata: { product: "clarte" },
-  };
+  const current = asRecord(await vapi(`/assistant/${LIVE_ASSISTANT_ID}`));
+  if (current.id !== LIVE_ASSISTANT_ID) {
+    throw new Error(`Assistant ${LIVE_ASSISTANT_ID} was not found. This script does not create assistants.`);
+  }
+  const model = asRecord(current.model);
+  if (typeof model.provider !== "string" || typeof model.model !== "string" || !Array.isArray(model.messages)) {
+    throw new Error("Refusing to PATCH: the live model, provider, or system prompt could not be read.");
+  }
 
-  const assistants = asArray(await vapi("/assistant"));
-  const preferred = process.env.VAPI_ASSISTANT_ID;
-  const match =
-    assistants.find((assistant) => preferred && assistant.id === preferred) ??
-    assistants.find((assistant) => assistant.name === ASSISTANT_NAME);
-  const assistantId = typeof match?.id === "string" ? match.id : "";
+  const nextModel: Record<string, unknown> = { toolIds };
+  for (const field of MODEL_FIELDS) {
+    if (model[field] !== undefined) nextModel[field] = model[field];
+  }
+  const promptBefore = JSON.stringify(model.messages);
+
   const saved = asRecord(
-    assistantId
-      ? await vapi(`/assistant/${assistantId}`, { method: "PATCH", body: JSON.stringify(assistantBody) })
-      : await vapi("/assistant", { method: "POST", body: JSON.stringify(assistantBody) }),
+    await vapi(`/assistant/${LIVE_ASSISTANT_ID}`, {
+      method: "PATCH",
+      body: JSON.stringify({ model: nextModel }),
+    }),
   );
-  const id = typeof saved.id === "string" ? saved.id : assistantId;
-  if (!id) throw new Error("Vapi did not return an assistant id");
+  const savedModel = asRecord(saved.model);
+  if (JSON.stringify(savedModel.messages) !== promptBefore) {
+    throw new Error("PATCH changed the assistant system prompt.");
+  }
+  if (saved.name !== undefined && saved.name !== current.name) {
+    throw new Error("PATCH changed the assistant name.");
+  }
 
-  console.log(`${assistantId ? "updated" : "created"} assistant ${ASSISTANT_NAME} ${id}`);
+  console.log(`attached ${toolIds.length} tools to assistant ${LIVE_ASSISTANT_ID}`);
   console.log(`server ${serverUrl}`);
-  console.log(`Set VAPI_ASSISTANT_ID=${id}`);
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return isRecord(value) ? value : {};
 }
 
 main().catch((error) => {

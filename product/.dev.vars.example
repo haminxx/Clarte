@@ -1,12 +1,13 @@
 # Copy to .dev.vars for `wrangler dev`. Never commit the real file.
 # Production: wrangler secret put <NAME> --config wrangler.api.toml
-# Names match plan Appendix B2. Values stay empty in git.
+# Names match plan Appendix B2. Secrets stay empty in git.
+# VAPI_ASSISTANT_ID is the public live assistant id.
 
 # Vapi — voice agent. The browser only gets the public key and assistant id
 # (website env). The private key is for scripts/vapi-setup.ts. The server
 # secret is what POST /vapi/tools checks (header x-vapi-secret).
 VAPI_PUBLIC_KEY=
-VAPI_ASSISTANT_ID=
+VAPI_ASSISTANT_ID=f7cef3eb-dd90-4b34-8a21-690c27e99393
 VAPI_PRIVATE_KEY=
 VAPI_SERVER_SECRET=
 
