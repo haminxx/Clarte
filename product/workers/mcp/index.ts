@@ -71,13 +71,15 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
+    // `binding` must name the Durable Object binding in wrangler.mcp.toml; the
+    // Agents SDK otherwise looks for its default, MCP_OBJECT.
     if (url.pathname === "/mcp") {
-      return PaberMcpAgent.serve("/mcp").fetch(request, env, ctx);
+      return PaberMcpAgent.serve("/mcp", { binding: "PABER_MCP" }).fetch(request, env, ctx);
     }
 
     // Legacy SSE transport, for MCP clients that do not speak Streamable HTTP yet.
     if (url.pathname === "/sse" || url.pathname === "/sse/message") {
-      return PaberMcpAgent.serveSSE("/sse").fetch(request, env, ctx);
+      return PaberMcpAgent.serveSSE("/sse", { binding: "PABER_MCP" }).fetch(request, env, ctx);
     }
 
     if (url.pathname === "/health" || url.pathname === "/") {

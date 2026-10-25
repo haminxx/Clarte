@@ -136,6 +136,19 @@ redeploying the API Worker:
 ALLOWED_ORIGINS = "http://localhost:3000,https://paber.pages.dev"
 ```
 
+Smoke test the MCP server (Streamable HTTP, so `initialize` first, then reuse the session id):
+
+```bash
+curl -sD /tmp/h -X POST localhost:8788/mcp \
+  -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}'
+
+SID=$(grep -i '^mcp-session-id' /tmp/h | tr -d '\r' | awk '{print $2}')
+curl -s -X POST localhost:8788/mcp \
+  -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
+  -H "mcp-session-id: $SID" -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+```
+
 ## 6. Connect the MCP server to Cursor
 
 ```json
