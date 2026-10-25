@@ -1,4 +1,4 @@
-export type Stage = "five_whys" | "why_how_what" | "debate";
+export type Stage = "five_whys" | "why_how_what" | "debate" | "visualize";
 
 export type DocType = "paper" | "patent" | "report" | "software" | "spinoff";
 

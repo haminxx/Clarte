@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { APP_URL, REPO_URL } from '@/lib/links'
 import { cn } from '@/lib/utils'
+import { useAuthNotice } from '@/components/v2/auth-notice'
 
 const LINKS = [
   { href: '#how', label: 'How it works' },
@@ -11,6 +12,7 @@ const LINKS = [
 /** Lightspark-style nav: 13px links, 32px buttons. White over the video hero, ink + canvas blur after scroll. */
 export default function Nav() {
   const [solid, setSolid] = useState(false)
+  const { signIn } = useAuthNotice()
   useEffect(() => {
     const on = () => setSolid(window.scrollY > window.innerHeight * 0.75)
     on()
@@ -34,7 +36,7 @@ export default function Nav() {
         </div>
         <div className="flex items-center gap-2">
           <a href={REPO_URL} className={cn('btn hidden sm:inline-flex', solid ? 'hover:bg-g-100' : 'hover:bg-white/10')}>GitHub</a>
-          <a href={APP_URL} className={cn('btn hidden sm:inline-flex', solid ? 'hover:bg-g-100' : 'hover:bg-white/10')}>Sign in</a>
+          <button type="button" onClick={signIn} className={cn('btn hidden sm:inline-flex', solid ? 'hover:bg-g-100' : 'hover:bg-white/10')}>Sign in</button>
           <a href={APP_URL} className={cn('btn', solid ? 'bg-ink text-canvas hover:bg-ink-hover' : 'bg-white text-ink hover:bg-g-100')}>Start talking</a>
         </div>
       </nav>

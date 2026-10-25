@@ -3,7 +3,15 @@
 import type { IdeaCardData } from "@/lib/types";
 
 /** The closing artifact of a session: problem, root cause, solution, evidence, risk. */
-export default function IdeaCard({ card }: { card: IdeaCardData }) {
+export default function IdeaCard({
+  card,
+  note,
+  visuals = [],
+}: {
+  card: IdeaCardData;
+  note?: string | null;
+  visuals?: { id: string; kind: string; imageUrl: string }[];
+}) {
   return (
     <article className="idea-card" aria-label="Idea card">
       <header>
@@ -37,6 +45,16 @@ export default function IdeaCard({ card }: { card: IdeaCardData }) {
             </li>
           ))}
         </ul>
+        {note ? <p className="voice-detail">{note}</p> : null}
+        {visuals.length > 0 ? (
+          <ul>
+            {visuals.map((visual) => (
+              <li key={visual.id}>
+                <img src={visual.imageUrl} alt={visual.kind} />
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </footer>
     </article>
   );

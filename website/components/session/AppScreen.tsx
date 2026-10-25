@@ -7,17 +7,18 @@ import StageBar from "@/components/StageBar";
 import TranscriptPanel from "@/components/TranscriptPanel";
 import VoiceButton from "@/components/VoiceButton";
 import {
-  callTool,
   draftIdeaCard,
+  fetchCitations,
   fetchGraph,
   fetchMentions,
+  sendChat,
   setStage as pushStage,
   startSession,
+  visualizeSession,
 } from "@/lib/api";
 import type {
   GraphPayload,
   IdeaCardData,
-  Objection,
   Stage,
   TechDocument,
   TranscriptEntry,
@@ -30,17 +31,6 @@ const Graph3D = dynamic(() => import("@/components/Graph3D"), {
   loading: () => <div className="graph-loading">Loading the constellation…</div>,
 });
 
-const STAGE_ORDER: Stage[] = ["five_whys", "why_how_what", "debate"];
-
-/**
- * Which stage a tool call implies. `search_tech` is used in every stage, so the
- * pill only ever moves forward — a stage-2 search must not drag it back to 1.
- */
-const STAGE_FOR_TOOL: Record<string, Stage> = {
-  find_related: "why_how_what",
-  market_evidence: "debate",
-};
-
 export default function Home() {
   const [graph, setGraph] = useState<GraphPayload>({ nodes: [], links: [] });
   const [graphError, setGraphError] = useState<string | null>(null);
@@ -50,10 +40,13 @@ export default function Home() {
   const [stage, setStage] = useState<Stage>("five_whys");
   const [status, setStatus] = useState<VoiceStatus>("idle");
   const [detail, setDetail] = useState<string | undefined>();
-  const [objections, setObjections] = useState<Objection[]>([]);
   const [ideaCard, setIdeaCard] = useState<IdeaCardData | null>(null);
+  const [visualNote, setVisualNote] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [visuals, setVisuals] = useState<{ id: string; kind: string; imageUrl: string }[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [textQuery, setTextQuery] = useState("");
+  const [sending, setSending] = useState(false);
 
   const clientRef = useRef<VoiceClient | null>(null);
   const cursorRef = useRef(0);
@@ -78,9 +71,15 @@ export default function Home() {
             ...update.mentions.map((mention) => mention.docId).filter((id) => !current.includes(id)),
           ]);
         }
-        setStage(update.stage);
+        if (update.stage) setStage(update.stage);
       } catch {
-        // Polling is best-effort; the voice path already sets highlights directly.
+        // Mentions are best-effort. A failed poll must not take down the page.
+      }
+      try {
+        const citations = await fetchCitations(sessionId);
+        if (citations.length) setDocuments(citations);
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : "Citations are not available yet.");
       }
     }, 1500);
     return () => clearInterval(timer);
@@ -96,32 +95,6 @@ export default function Home() {
       return [...current, { id: `${final ? "final" : "live-"}${role}-${current.length}`, role, text }];
     });
   }, []);
-
-  const handleToolCall = useCallback(
-    async (name: string, args: Record<string, unknown>) => {
-      const activeSession = sessionId ?? "local";
-      const response = await callTool(activeSession, name, args);
-
-      setHighlighted((current) => [
-        ...current,
-        ...response.highlight.filter((id) => !current.includes(id)),
-      ]);
-
-      const returned = (response.documents ?? response.evidence) as TechDocument[] | undefined;
-      if (returned?.length) setDocuments(returned);
-      if (Array.isArray(response.objections)) setObjections(response.objections as Objection[]);
-
-      const implied = STAGE_FOR_TOOL[name];
-      if (implied && STAGE_ORDER.indexOf(implied) > STAGE_ORDER.indexOf(stage)) {
-        setStage(implied);
-        void pushStage(activeSession, implied).catch(() => undefined);
-      }
-
-      appendTranscript("system", response.summary, true);
-      return response;
-    },
-    [appendTranscript, sessionId, stage],
-  );
 
   useEffect(() => {
     if (!readVoiceConfig()) setDetail(VOICE_UNAVAILABLE);
@@ -162,28 +135,62 @@ export default function Home() {
     setStatus("idle");
   }, []);
 
-  /** Backup path from plan section 10: same tools, typed instead of spoken. */
+  /** Text chat stays available when voice is not configured. */
   const runTextQuery = useCallback(
     async (event: React.FormEvent) => {
       event.preventDefault();
       const query = textQuery.trim();
-      if (!query) return;
-
-      let activeSession = sessionId;
-      if (!activeSession) {
-        const session = await startSession();
-        activeSession = session.sessionId;
-        setSessionId(session.sessionId);
-      }
-
-      appendTranscript("user", query, true);
+      if (!query || sending) return;
+      setSending(true);
       setTextQuery("");
-      await handleToolCall(stage === "debate" ? "market_evidence" : "search_tech", {
-        [stage === "debate" ? "idea" : "query"]: query,
-      }).catch((error: unknown) => setDetail(String(error)));
+      appendTranscript("user", query, true);
+      try {
+        let activeSession = sessionId;
+        if (!activeSession) {
+          const session = await startSession();
+          activeSession = session.sessionId;
+          setSessionId(session.sessionId);
+        }
+        const turn = await sendChat(activeSession, query);
+        if (turn.reply) appendTranscript("clarte", turn.reply, true);
+        if (turn.stage) setStage(turn.stage);
+        if (turn.highlight.length) {
+          setHighlighted((current) => [
+            ...current,
+            ...turn.highlight.filter((id) => !current.includes(id)),
+          ]);
+        }
+        if (turn.citations.length) setDocuments(turn.citations);
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : "Text chat did not go through. You can try again.");
+      } finally {
+        setSending(false);
+      }
     },
-    [appendTranscript, handleToolCall, sessionId, stage, textQuery],
+    [appendTranscript, sending, sessionId, textQuery],
   );
+
+  const visualize = useCallback(async () => {
+    if (!sessionId) {
+      setVisualNote("Send a text message first so there is a session to visualize.");
+      setNotice("Send a text message first so there is a session to visualize.");
+      return;
+    }
+    try {
+      const result = await visualizeSession(sessionId);
+      if (result.message) {
+        setVisualNote(result.message);
+        setNotice(result.message);
+        return;
+      }
+      setVisuals(result.visuals);
+      setVisualNote(result.visuals.length ? null : "No images came back.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Visualize did not run.";
+      setVisualNote(message);
+      setNotice(message);
+    }
+  }, [sessionId]);
 
   /** Gemma 4 writes the card server-side; the local assembly is the fallback. */
   const buildIdeaCard = useCallback(async () => {
@@ -200,7 +207,7 @@ export default function Home() {
         setIdeaCard(card);
         return;
       } catch (error) {
-        setDetail(`Could not draft the card with Gemma: ${String(error)}`);
+        setNotice(error instanceof Error ? error.message : "Could not draft the idea card.");
       }
     }
 
@@ -213,9 +220,9 @@ export default function Home() {
         title: document.title,
         url: document.url,
       })),
-      risk: objections[0]?.claim ?? "No prior art strong enough to object yet.",
+      risk: "Remaining risks are whatever Clarte raised in the debate.",
     });
-  }, [documents, objections, sessionId, transcript]);
+  }, [documents, sessionId, transcript]);
 
   const nodeCount = useMemo(() => graph.nodes.length, [graph.nodes.length]);
 
@@ -253,6 +260,7 @@ export default function Home() {
 
       <footer className="bottom">
         <VoiceButton status={status} detail={detail} onStart={start} onStop={stop} />
+        {notice ? <p className="voice-detail" role="status">{notice}</p> : null}
 
         <form className="text-mode" onSubmit={runTextQuery}>
           <input
@@ -263,7 +271,7 @@ export default function Home() {
             }
             aria-label="Text mode query"
           />
-          <button type="submit">Search the library</button>
+          <button type="submit" disabled={sending}>{sending ? "Sending…" : "Send"}</button>
         </form>
 
         <div className="status-row">
@@ -272,12 +280,15 @@ export default function Home() {
           <button type="button" className="ghost" onClick={() => void buildIdeaCard()}>
             Make idea card
           </button>
+          <button type="button" className="ghost" onClick={() => void visualize()}>
+            Visualize
+          </button>
         </div>
       </footer>
 
       {ideaCard ? (
         <div className="idea-layer" onClick={() => setIdeaCard(null)} role="presentation">
-          <IdeaCard card={ideaCard} />
+          <IdeaCard card={ideaCard} note={visualNote} visuals={visuals} />
         </div>
       ) : null}
     </main>

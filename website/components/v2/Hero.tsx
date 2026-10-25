@@ -2,7 +2,8 @@ import { ArrowUpRight, Mic } from 'lucide-react'
 import { useReducedMotion } from 'motion/react'
 import Floating, { FloatingElement } from '@/components/ui/parallax-floating'
 import { GoogleG } from '@/components/landing/icons'
-import { APP_URL, GOOGLE_URL } from '@/lib/links'
+import { APP_URL } from '@/lib/links'
+import { useAuthNotice } from '@/components/v2/auth-notice'
 
 const POSTER = '/video/hero-blueprint-poster.webp'
 
@@ -13,6 +14,7 @@ const POSTER = '/video/hero-blueprint-poster.webp'
  */
 export default function Hero() {
   const reduced = useReducedMotion()
+  const { signIn } = useAuthNotice()
   return (
     <section id="top" className="relative isolate flex min-h-[640px] items-center overflow-hidden bg-[#05080d] text-white" style={{ height: '100svh' }}>
       <div aria-hidden className="absolute inset-0 -z-10">
@@ -74,7 +76,7 @@ export default function Hero() {
         </p>
         <div className="mt-8 flex flex-col items-center gap-2 sm:flex-row">
           <a href={APP_URL} className="btn h-10 bg-white px-4 text-[14px] text-ink hover:bg-g-100"><Mic className="h-4 w-4" aria-hidden />Start talking</a>
-          <a href={GOOGLE_URL} className="btn h-10 border border-white/20 bg-white/10 px-4 text-[14px] text-white backdrop-blur-md hover:bg-white/20"><GoogleG className="h-4 w-4" />Continue with Google</a>
+          <button type="button" onClick={signIn} className="btn h-10 border border-white/20 bg-white/10 px-4 text-[14px] text-white backdrop-blur-md hover:bg-white/20"><GoogleG className="h-4 w-4" />Continue with Google</button>
         </div>
         <p className="mt-4 font-mono text-[10px] uppercase tracking-[.08em] text-white/55">Free · Open source · Every claim has a link</p>
       </div>
