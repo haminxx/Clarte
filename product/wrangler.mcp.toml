@@ -22,7 +22,9 @@ fallthrough = true
 [vars]
 GEMMA_MODEL = "gemma-4-26b-a4b-it"
 IMAGINE_ENABLED = "false"
-ALLOWED_ORIGINS = "http://localhost:3000,https://clarte.io,https://www.clarte.io"
+# The API also allows https://<preview>.clarte-web.pages.dev in code. This Worker
+# does not inspect Origin; the apex Pages host is listed so the var matches the API.
+ALLOWED_ORIGINS = "http://localhost:3000,https://clarte.io,https://www.clarte.io,https://clarte-web.pages.dev"
 
 [[durable_objects.bindings]]
 name = "CLARTE_MCP"
