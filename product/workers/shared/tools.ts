@@ -1,22 +1,95 @@
 import debatePrompt from "../../prompts/debate.md";
-import { getDocumentById, getDocumentsByIds, getNeighbours, keywordSearch, rowToDocument } from "./db";
+import {
+  getDocumentById,
+  getDocumentsByIds,
+  getNeighbours,
+  getSession,
+  getUserKey,
+  insertVisual,
+  keywordSearch,
+  rowToDocument,
+} from "./db";
+import { decryptString } from "./crypto";
 import { embedQuery } from "./embeddings";
 import type { Env } from "./env";
+import { imagineEnabled } from "./env";
 import { gemmaConfig, gemmaJson, hasGemma } from "./gemma";
-import type { DebateResult, IdeaCard, TechDocument } from "./types";
+import { generateImage, IMAGINE_MODEL, imaginePrompts, parseVisualKinds, videoStub } from "./imagine";
+import type { DebateResult, IdeaCard, TechDocument, VisualView } from "./types";
+import { sourceLabel } from "./types";
 import type { ToolName } from "./tools-spec";
 
 /**
- * The four Clarte tools (plan 6.3). The MCP server and the voice bridge both call
- * these functions, so tool behaviour cannot drift between the two entry points.
+ * The five Clarte tools (plan 6.3). The MCP server, Vapi webhook, and text coach
+ * all call these functions, so tool behaviour cannot drift between entry points.
  *
- * Every result carries `mentionedIds`: the documents the coach just touched, which
- * the API records in `mentions` so the website lights up the matching nodes.
+ * `documents` is the citation list. Every document includes `url`, `source`, and `type`.
+ * `mentionedIds` is what the API writes to `mentions` so the graph lights up.
  */
+export type ImagineError = "disabled" | "sign_in_required" | "key_required" | "imagine_failed";
+
+export interface ToolRunContext {
+  sessionId?: string;
+  /** Signed-in user on this HTTP request, when the caller has a session cookie. */
+  userId?: string | null;
+  /**
+   * `request` uses only `userId` (anonymous if the cookie is missing).
+   * `session` falls back to the user stored on the brainstorm session (Vapi).
+   */
+  userSource?: "request" | "session";
+}
+
 export interface ToolResult {
   summary: string;
   mentionedIds: string[];
+  documents: TechDocument[];
   data: Record<string, unknown>;
+  /** When set, Vapi receives `error` instead of `result`. */
+  speakError?: string;
+  imagineError?: ImagineError;
+}
+
+const IMAGINE_MESSAGES: Record<ImagineError, string> = {
+  sign_in_required: "Sign in and connect an xAI key to visualize this idea.",
+  key_required: "Connect an xAI key in Settings to visualize this idea.",
+  disabled: "Idea visualization is turned off right now.",
+  imagine_failed: "The image service did not return a picture. Try again in a moment.",
+};
+
+/** Compact document for Vapi and MCP. `source` stays the stored code. */
+export function publicDocument(document: TechDocument) {
+  return {
+    id: document.id,
+    title: document.title,
+    type: document.type,
+    source: document.source,
+    sourceLabel: sourceLabel(document.source),
+    url: document.url ?? "",
+    summary: (document.summary ?? "").slice(0, 360),
+    ...(document.score !== undefined ? { score: document.score } : {}),
+    ...(document.reason ? { reason: document.reason } : {}),
+  };
+}
+
+export function compactToolResult(name: ToolName, result: ToolResult): string {
+  const docs = result.documents.map(publicDocument);
+  switch (name) {
+    case "search_tech":
+      return JSON.stringify({ docs });
+    case "get_document":
+      return JSON.stringify({ doc: docs[0] ?? null, docs });
+    case "find_related":
+      return JSON.stringify({ origin: docs[0] ?? null, docs: docs.slice(1) });
+    case "market_evidence":
+      return JSON.stringify({
+        docs,
+        objections: result.data.objections ?? [],
+        edge_test: result.data.edge_test ?? "",
+        gaps: result.data.gaps ?? "",
+      });
+    case "visualize_idea":
+      return JSON.stringify({ visuals: result.data.visuals ?? [], docs });
+  }
 }
 
 function clampLimit(value: unknown, fallback: number): number {
@@ -39,7 +112,7 @@ export async function searchTech(
   const limit = clampLimit(args.limit, 6);
   const query = (args.query ?? "").trim();
   if (!query) {
-    return { summary: "No query given.", mentionedIds: [], data: { documents: [] } };
+    return { summary: "No query given.", mentionedIds: [], documents: [], data: { documents: [] } };
   }
 
   let documents: TechDocument[] = [];
@@ -68,6 +141,7 @@ export async function searchTech(
       ? `${documents.length} documents for "${query}": ${documents.slice(0, 3).map(describe).join("; ")}`
       : `The library has nothing on "${query}".`,
     mentionedIds: documents.map((document) => document.id),
+    documents,
     data: { query, documents },
   };
 }
@@ -75,11 +149,17 @@ export async function searchTech(
 export async function getDocument(env: Env, args: { id: string }): Promise<ToolResult> {
   const document = await getDocumentById(env, (args.id ?? "").trim());
   if (!document) {
-    return { summary: `No document with id ${args.id}.`, mentionedIds: [], data: { document: null } };
+    return {
+      summary: `No document with id ${args.id}.`,
+      mentionedIds: [],
+      documents: [],
+      data: { document: null },
+    };
   }
   return {
-    summary: `${describe(document)} (${document.licenseStatus ?? document.source}): ${document.summary}`,
+    summary: `${describe(document)} (${document.licenseStatus ?? sourceLabel(document.source)}): ${document.summary}`,
     mentionedIds: [document.id],
+    documents: [document],
     data: { document },
   };
 }
@@ -94,7 +174,7 @@ export async function findRelated(
 
   const origin = await getDocumentById(env, id);
   if (!origin) {
-    return { summary: `No document with id ${id}.`, mentionedIds: [], data: { documents: [] } };
+    return { summary: `No document with id ${id}.`, mentionedIds: [], documents: [], data: { documents: [] } };
   }
 
   let documents: TechDocument[] = (await getNeighbours(env, id, { crossDomain, limit })).map(
@@ -131,6 +211,7 @@ export async function findRelated(
       ? `Neighbours of ${origin.title}: ${documents.slice(0, 3).map(describe).join("; ")}`
       : `${origin.title} has no neighbours in the graph yet.`,
     mentionedIds: [origin.id, ...documents.map((document) => document.id)],
+    documents: [origin, ...documents],
     data: { origin, documents, crossDomain },
   };
 }
@@ -179,7 +260,7 @@ export async function marketEvidence(
   const idea = (args.idea ?? "").trim();
   const limit = clampLimit(args.limit, 8);
   if (!idea) {
-    return { summary: "No idea given.", mentionedIds: [], data: { objections: [] } };
+    return { summary: "No idea given.", mentionedIds: [], documents: [], data: { objections: [] } };
   }
 
   const retrieved = await searchTech(env, { query: idea, limit });
@@ -192,6 +273,7 @@ export async function marketEvidence(
       ? `${debate.objections.length} objections, strongest first: ${debate.objections[0].claim}`
       : `No prior art strong enough to argue against this yet.`,
     mentionedIds: documents.map((document) => document.id),
+    documents,
     data: { idea, evidence: documents, ...debate },
   };
 }
@@ -211,7 +293,7 @@ async function runDebate(env: Env, idea: string, documents: TechDocument[]): Pro
   const evidence = documents
     .map(
       (document, index) =>
-        `[${index + 1}] ${document.id} | ${document.type} | ${document.center ?? document.source} | ${document.title}\n    ${document.summary}`,
+        `[${index + 1}] ${document.id} | ${document.type} | ${document.source} | ${document.url} | ${document.title}\n    ${document.summary}`,
     )
     .join("\n");
 
@@ -234,7 +316,7 @@ async function runDebate(env: Env, idea: string, documents: TechDocument[]): Pro
     }
   }
 
-  // No Gemini key (or Gemma failed): still hand Grok real, cited pushback.
+  // No Gemini key (or Gemma failed): still hand the coach real, cited pushback.
   return {
     objections: documents.slice(0, 3).map((document) => ({
       claim: `${document.center ?? document.source} already published "${document.title}", which covers part of this.`,
@@ -301,7 +383,118 @@ export async function draftIdeaCard(
   }
 }
 
-export async function runTool(env: Env, name: ToolName, args: Record<string, unknown>): Promise<ToolResult> {
+function stringArg(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function imagineRefusal(code: ImagineError): ToolResult {
+  return {
+    summary: IMAGINE_MESSAGES[code],
+    mentionedIds: [],
+    documents: [],
+    data: { visuals: [] },
+    speakError: IMAGINE_MESSAGES[code],
+    imagineError: code,
+  };
+}
+
+/**
+ * End-of-session visuals. Off unless IMAGINE_ENABLED is true, the user is signed
+ * in, and `user_keys` has an AES-GCM xAI key. The env XAI_API_KEY is not used.
+ * Video does not call xAI.
+ */
+export async function visualizeIdea(
+  env: Env,
+  args: { session_id?: string; sessionId?: string; kinds?: unknown },
+  ctx: ToolRunContext = {},
+): Promise<ToolResult> {
+  const sessionId = stringArg(args.session_id) || stringArg(args.sessionId) || ctx.sessionId || "";
+  const session = sessionId ? await getSession(env, sessionId) : null;
+  const userId = ctx.userSource === "request" ? (ctx.userId ?? null) : (ctx.userId ?? session?.userId ?? null);
+
+  if (!userId) return imagineRefusal("sign_in_required");
+
+  const stored = await getUserKey(env, userId, "xai");
+  if (!stored) return imagineRefusal("key_required");
+  if (!imagineEnabled(env)) return imagineRefusal("disabled");
+  if (!env.KEY_ENCRYPTION_KEY) return imagineRefusal("key_required");
+
+  let apiKey = "";
+  try {
+    apiKey = await decryptString(env.KEY_ENCRYPTION_KEY, stored.ciphertext, stored.iv);
+  } catch (error) {
+    console.warn("xAI key decrypt failed", { userId });
+    return imagineRefusal("key_required");
+  }
+  if (!apiKey) return imagineRefusal("key_required");
+
+  const { images, video } = parseVisualKinds(args.kinds);
+  const card: IdeaCard = session?.idea ?? {
+    problem: session?.rootCause || "Untitled idea",
+    rootCause: session?.rootCause || "",
+    solution: session?.rootCause || "Untitled idea",
+    evidence: [],
+    risk: "",
+  };
+  const evidence = await getDocumentsByIds(
+    env,
+    card.evidence.map((item) => item.id).filter(Boolean).slice(0, 6),
+  );
+  const documents = [...evidence.values()].map((row) => rowToDocument(row));
+  const prompts = await imaginePrompts(env, card, images);
+  const visuals: VisualView[] = [];
+
+  if (sessionId && images.length) {
+    const generated = await Promise.all(
+      prompts.map(async (item) => {
+        try {
+          const imageUrl = await generateImage(apiKey, item.prompt);
+          return { ...item, imageUrl };
+        } catch (error) {
+          console.warn("Imagine image failed", {
+            kind: item.kind,
+            error: error instanceof Error ? error.message.slice(0, 180) : "failed",
+          });
+          return { ...item, imageUrl: null as string | null };
+        }
+      }),
+    );
+    for (const item of generated) {
+      if (!item.imageUrl) continue;
+      const visual: VisualView = {
+        id: crypto.randomUUID(),
+        kind: item.kind,
+        prompt: item.prompt,
+        imageUrl: item.imageUrl,
+        model: IMAGINE_MODEL,
+      };
+      await insertVisual(env, { ...visual, sessionId });
+      visuals.push(visual);
+    }
+  }
+
+  if (video && sessionId) {
+    const stub = videoStub();
+    await insertVisual(env, { ...stub, sessionId });
+    visuals.push(stub);
+  }
+
+  if (!visuals.length) return imagineRefusal("imagine_failed");
+
+  return {
+    summary: `Rendered ${visuals.length} visual${visuals.length === 1 ? "" : "s"} for the idea.`,
+    mentionedIds: documents.map((document) => document.id),
+    documents,
+    data: { visuals },
+  };
+}
+
+export async function runTool(
+  env: Env,
+  name: ToolName,
+  args: Record<string, unknown>,
+  ctx: ToolRunContext = {},
+): Promise<ToolResult> {
   switch (name) {
     case "search_tech":
       return searchTech(env, args as { query: string; limit?: number });
@@ -311,5 +504,7 @@ export async function runTool(env: Env, name: ToolName, args: Record<string, unk
       return findRelated(env, args as { id: string; cross_domain?: boolean; limit?: number });
     case "market_evidence":
       return marketEvidence(env, args as { idea: string; limit?: number });
+    case "visualize_idea":
+      return visualizeIdea(env, args, { ...ctx, sessionId: ctx.sessionId });
   }
 }

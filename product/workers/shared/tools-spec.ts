@@ -1,7 +1,7 @@
 /**
- * The four Clarte tools — plan section 6.3. One definition feeds three consumers:
- * the MCP server, the Grok Voice `session.update` tools array, and the HTTP bridge
- * that executes a tool call arriving back over the voice socket.
+ * The five Clarte tools — plan section 6.3. One definition feeds the MCP server,
+ * the Vapi setup script, and the HTTP bridge that executes a tool call.
+ * Every document the model sees includes `url`, `source`, and `type`.
  */
 
 export type JsonSchema = {
@@ -16,7 +16,13 @@ export interface ToolDefinition {
   parameters: JsonSchema;
 }
 
-export const TOOL_NAMES = ["search_tech", "get_document", "find_related", "market_evidence"] as const;
+export const TOOL_NAMES = [
+  "search_tech",
+  "get_document",
+  "find_related",
+  "market_evidence",
+  "visualize_idea",
+] as const;
 
 export type ToolName = (typeof TOOL_NAMES)[number];
 
@@ -82,13 +88,32 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       required: ["idea"],
     },
   },
+  {
+    name: "visualize_idea",
+    description:
+      "Stage 4 only, after the user confirms the final idea card. Ask Gemma 4 for image prompts and render them with Grok Imagine. kinds are concept, system_diagram, and paper_figure. Video is a stub. Refuses unless idea visualization is enabled, the user is signed in, and they have connected an xAI key. Never call this during the five whys, why-how-what, or debate.",
+    parameters: {
+      type: "object",
+      properties: {
+        session_id: {
+          type: "string",
+          description: "Clarte session id. Omit to use the call's sessionId metadata.",
+        },
+        kinds: {
+          type: "array",
+          items: { type: "string", enum: ["concept", "system_diagram", "paper_figure"] },
+          description: "Which images to render. Defaults to all three.",
+        },
+      },
+    },
+  },
 ];
 
 export const TOOL_BY_NAME: Record<ToolName, ToolDefinition> = Object.fromEntries(
   TOOL_DEFINITIONS.map((tool) => [tool.name, tool]),
 ) as Record<ToolName, ToolDefinition>;
 
-/** Shape Grok Voice expects in `session.update` → `session.tools`. */
+/** @deprecated Grok Voice session.update shape. Removed with workers/api/voice.ts. */
 export function grokVoiceTools(): Array<{
   type: "function";
   name: string;

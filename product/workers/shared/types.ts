@@ -10,9 +10,9 @@ export type DocType = "paper" | "patent" | "report" | "software" | "spinoff";
  */
 export type SourceName = "nasa_t2" | "ntrs" | "arxiv" | "europepmc" | "openalex";
 
-export type Stage = "five_whys" | "why_how_what" | "debate";
+export type Stage = "five_whys" | "why_how_what" | "debate" | "visualize";
 
-export const STAGES: Stage[] = ["five_whys", "why_how_what", "debate"];
+export const STAGES: Stage[] = ["five_whys", "why_how_what", "debate", "visualize"];
 
 /** A record as returned by a public API, before Gemma 4 enrichment. */
 export interface RawDocument {
@@ -115,4 +115,53 @@ export interface IdeaCard {
   solution: string;
   evidence: { id: string; title: string; url: string }[];
   risk: string;
+}
+
+/** One row of the Sources panel and the final report. */
+export interface CitationView {
+  docId: string;
+  url: string;
+  title: string;
+  source: string;
+  type: string;
+  stage: string;
+}
+
+/** One generated (or stubbed) idea visual. */
+export interface VisualView {
+  id: string;
+  kind: string;
+  prompt: string;
+  imageUrl: string | null;
+  model: string | null;
+}
+
+export interface TranscriptTurn {
+  role: "user" | "clarte";
+  text: string;
+  stage: Stage;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string | null;
+  name: string | null;
+}
+
+/** Spoken source name. `source` in JSON stays the stored code (`nasa_t2`, …). */
+export function sourceLabel(source: string): string {
+  switch (source) {
+    case "nasa_t2":
+      return "NASA T2";
+    case "ntrs":
+      return "NASA NTRS";
+    case "arxiv":
+      return "arXiv";
+    case "europepmc":
+      return "Europe PMC";
+    case "openalex":
+      return "OpenAlex";
+    default:
+      return source;
+  }
 }

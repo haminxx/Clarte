@@ -1,8 +1,8 @@
 /**
  * Gemma 4 (`gemma-4-26b-a4b-it` via the Gemini API) is Clarte's reasoning layer —
  * plan section 6.2. It summarises and tags documents at ingest time and writes the
- * debate objections and link reasons at run time. Grok Voice never calls it
- * directly: Grok calls a tool, the tool calls Gemma.
+ * debate objections, link reasons, and Imagine prompts at run time. The voice
+ * layer calls a tool; the tool calls Gemma.
  *
  * fetch-only, so the same file runs on Workers and on Node (ingest).
  * With no GEMINI_API_KEY every call degrades to an empty string and callers fall

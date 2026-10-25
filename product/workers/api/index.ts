@@ -4,6 +4,7 @@ import {
   getGraph,
   getMentions,
   getSession,
+  recordCitations,
   recordMentions,
   setIdeaCard,
   setRootCause,
@@ -70,19 +71,35 @@ export default {
 
         const body = await readJson<{ sessionId?: string; args?: Record<string, unknown> }>(request);
         const args = body.args ?? {};
-        const result = await runTool(env, name, args);
+        const result = await runTool(env, name, args, {
+          sessionId: body.sessionId,
+          userSource: "request",
+        });
 
-        if (body.sessionId) {
+        let citations: Awaited<ReturnType<typeof recordCitations>> = [];
+        if (body.sessionId && !result.speakError) {
+          const session = await getSession(env, body.sessionId).catch(() => null);
           await recordMentions(env, body.sessionId, result.mentionedIds).catch((error) =>
             console.warn("recordMentions failed", { error: String(error) }),
           );
+          citations = await recordCitations(
+            env,
+            body.sessionId,
+            result.documents,
+            session?.stage ?? "five_whys",
+          ).catch((error) => {
+            console.warn("recordCitations failed", { error: String(error) });
+            return [];
+          });
         }
 
         return json(env, request, {
           tool: name,
           summary: result.summary,
           highlight: result.mentionedIds,
+          citations,
           ...result.data,
+          ...(result.imagineError ? { error: result.imagineError } : {}),
         });
       }
 

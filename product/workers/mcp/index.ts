@@ -3,12 +3,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { countDocuments } from "../shared/db";
 import type { Env } from "../shared/env";
-import { findRelated, getDocument, marketEvidence, searchTech } from "../shared/tools";
+import { findRelated, getDocument, marketEvidence, searchTech, visualizeIdea } from "../shared/tools";
 import { TOOL_BY_NAME } from "../shared/tools-spec";
 
 /**
  * Clarte MCP server — plan section 6.1, layer 4 and 6.3.
- * Same four tools the voice bridge calls, exposed over MCP so Cursor (or any MCP
+ * Same five tools the Vapi webhook calls, exposed over MCP so Cursor (or any MCP
  * client) can query the library directly. The tool bodies live in shared/tools.ts
  * so voice and MCP can never drift apart.
  */
@@ -54,6 +54,26 @@ export class ClarteMcpAgent extends McpAgent<Env> {
         limit: z.number().int().min(1).max(12).optional(),
       },
       async ({ idea, limit }) => textResult(await marketEvidence(env, { idea, limit })),
+    );
+
+    this.server.tool(
+      "visualize_idea",
+      TOOL_BY_NAME.visualize_idea.description,
+      {
+        session_id: z.string().optional().describe("Clarte brainstorm session id."),
+        kinds: z.array(z.enum(["concept", "system_diagram", "paper_figure"])).optional(),
+      },
+      async ({ session_id, kinds }) => {
+        const result = await visualizeIdea(
+          env,
+          { session_id, kinds },
+          { sessionId: session_id, userSource: "session" },
+        );
+        if (result.speakError) {
+          return { content: [{ type: "text" as const, text: result.speakError }], isError: true };
+        }
+        return textResult(result);
+      },
     );
   }
 }

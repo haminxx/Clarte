@@ -4,12 +4,12 @@
 Used by the `market_evidence` tool (plan sections 6.3 and 5, stage 3). Gemma 4
 (`gemma-4-26b-a4b-it` via the Gemini API) receives this instruction plus the user's
 idea and the prior art retrieved from the library, and returns the objections that
-Grok Voice then argues out loud. The appended payload looks like:
+The voice coach then argues out loud. The appended payload looks like:
 
 IDEA: <one or two sentences>
 STANCE: against | for
 EVIDENCE:
-[1] id | type | center | title
+[1] id | type | source | url | title
     summary
 [2] ...
 -->
