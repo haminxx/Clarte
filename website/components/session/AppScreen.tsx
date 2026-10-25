@@ -118,6 +118,10 @@ export default function Home() {
         },
         onUserTranscript: (text, final) => appendTranscript("user", text, final),
         onAssistantTranscript: (text, final) => appendTranscript("clarte", text, final),
+        onHighlights: (ids, note) => {
+          setHighlighted((current) => [...current, ...ids.filter((id) => !current.includes(id))]);
+          if (note) appendTranscript("system", note, true);
+        },
         onError: (message) => setDetail(message),
       });
 

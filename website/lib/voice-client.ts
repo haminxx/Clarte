@@ -13,6 +13,8 @@ export interface VoiceClientHandlers {
   onStatus: (status: VoiceStatus, detail?: string) => void;
   onUserTranscript: (text: string, final: boolean) => void;
   onAssistantTranscript: (text: string, final: boolean) => void;
+  /** Document ids, and an optional spoken-source line, from a tool-calls message. */
+  onHighlights: (ids: string[], note?: string) => void;
   onError: (message: string) => void;
 }
 
@@ -102,12 +104,19 @@ export class VoiceClient {
   private handleMessage(message: unknown): void {
     if (!message || typeof message !== "object") return;
     const row = message as Record<string, unknown>;
-    if (row.type !== "transcript") return;
-    const text = typeof row.transcript === "string" ? row.transcript : "";
-    if (!text.trim()) return;
-    const final = row.transcriptType !== "partial";
-    if (row.role === "user") this.handlers.onUserTranscript(text, final);
-    if (row.role === "assistant" || row.role === "bot") this.handlers.onAssistantTranscript(text, final);
+    if (row.type === "transcript") {
+      const text = typeof row.transcript === "string" ? row.transcript : "";
+      if (!text.trim()) return;
+      const final = row.transcriptType !== "partial";
+      if (row.role === "user") this.handlers.onUserTranscript(text, final);
+      if (row.role === "assistant" || row.role === "bot") this.handlers.onAssistantTranscript(text, final);
+      return;
+    }
+
+    const ids = new Set<string>();
+    const titles: string[] = [];
+    collectDocIds(row, ids, titles);
+    if (ids.size) this.handlers.onHighlights([...ids], titles.length ? titles.join(" · ") : undefined);
   }
 
   disconnect(): void {
@@ -117,4 +126,35 @@ export class VoiceClient {
     vapi.removeAllListeners();
     void Promise.resolve(vapi.stop()).catch(() => undefined);
   }
+}
+
+function collectDocIds(value: unknown, ids: Set<string>, titles: string[], key?: string): void {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if ((trimmed.startsWith("{") || trimmed.startsWith("[")) && trimmed.length < 20000) {
+      try {
+        collectDocIds(JSON.parse(trimmed) as unknown, ids, titles);
+      } catch {
+        // Tool results are often JSON strings. Anything else is ignored.
+      }
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    if (key === "highlight" || key === "mentionedIds") {
+      for (const item of value) if (typeof item === "string" && item) ids.add(item);
+    }
+    for (const item of value) collectDocIds(item, ids, titles);
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  const row = value as Record<string, unknown>;
+  const id = typeof row.docId === "string" ? row.docId : typeof row.id === "string" ? row.id : "";
+  const title = typeof row.title === "string" ? row.title : "";
+  const looksLikeDoc = title.length > 0 || typeof row.url === "string" || typeof row.type === "string";
+  if (id && looksLikeDoc) {
+    ids.add(id);
+    if (title && !titles.includes(title)) titles.push(title);
+  }
+  for (const [childKey, child] of Object.entries(row)) collectDocIds(child, ids, titles, childKey);
 }
