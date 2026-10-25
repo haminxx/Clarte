@@ -2,11 +2,12 @@
 
 import type { Stage } from "@/lib/types";
 
-/** The 3-stage flow from plan section 5, shown as the current position in it. */
+/** The conversation stages from plan section 5, including the final visualize step. */
 const STAGES: { id: Stage; label: string; hint: string }[] = [
   { id: "five_whys", label: "5 Whys", hint: "Find the root problem" },
   { id: "why_how_what", label: "Why · How · What", hint: "Structure the idea" },
   { id: "debate", label: "Debate", hint: "Defend it against prior art" },
+  { id: "visualize", label: "Visualize", hint: "Render the final idea" },
 ];
 
 interface Props {

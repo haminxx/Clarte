@@ -3,7 +3,7 @@
 import type { VoiceStatus } from "@/lib/voice-client";
 
 const LABEL: Record<VoiceStatus, string> = {
-  idle: "Start talking",
+  idle: "Talk with Clarte Coach",
   connecting: "Connecting…",
   live: "Listening — tap to stop",
   closed: "Start talking",
