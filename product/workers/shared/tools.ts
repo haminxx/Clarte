@@ -14,6 +14,7 @@ import { embedQuery } from "./embeddings";
 import type { Env } from "./env";
 import { imagineEnabled } from "./env";
 import { gemmaConfig, gemmaJson, hasGemma } from "./gemma";
+import { EXA_NUM_RESULTS, EXA_PAPER_CATEGORY, EXA_SOURCE_DOMAINS, exaSearch } from "./exa";
 import { generateImage, IMAGINE_MODEL, imaginePrompts, parseVisualKinds, videoStub } from "./imagine";
 import type { DebateResult, IdeaCard, TechDocument, VisualView } from "./types";
 import { sourceLabel } from "./types";
@@ -66,6 +67,8 @@ export function publicDocument(document: TechDocument) {
     sourceLabel: sourceLabel(document.source),
     url: document.url ?? "",
     summary: (document.summary ?? "").slice(0, 360),
+    highlight: (document.summary ?? "").slice(0, 400),
+    published: document.published,
     ...(document.score !== undefined ? { score: document.score } : {}),
     ...(document.reason ? { reason: document.reason } : {}),
   };
@@ -108,6 +111,7 @@ function describe(document: TechDocument): string {
 export async function searchTech(
   env: Env,
   args: { query: string; limit?: number },
+  options?: { exa?: boolean },
 ): Promise<ToolResult> {
   const limit = clampLimit(args.limit, 6);
   const query = (args.query ?? "").trim();
@@ -116,6 +120,7 @@ export async function searchTech(
   }
 
   let documents: TechDocument[] = [];
+  let vectorFailed = false;
 
   try {
     const vector = await embedQuery(env, query);
@@ -129,11 +134,25 @@ export async function searchTech(
       })
       .filter((document): document is TechDocument => document !== null);
   } catch (error) {
+    vectorFailed = true;
     console.warn("Vector search failed; falling back to keyword search", { error: String(error) });
   }
 
+  const topScore = documents[0]?.score ?? 0;
+  const thinIndex = vectorFailed || documents.length < 3 || topScore < 0.4;
+
   if (!documents.length) {
     documents = await keywordSearch(env, query, limit);
+  }
+
+  // Exa complements a thin or missing Vectorize index. No key means this is a no-op.
+  if (options?.exa !== false && thinIndex) {
+    const live = await exaSearch(env, {
+      query,
+      numResults: EXA_NUM_RESULTS,
+      includeDomains: EXA_SOURCE_DOMAINS,
+    });
+    documents = mergeDocuments(documents, live).slice(0, limit);
   }
 
   return {
@@ -187,10 +206,14 @@ export async function findRelated(
   // Edges are written at ingest time; if this node has none yet, fall back to a
   // live nearest-neighbour query so the tool still returns something useful.
   if (!documents.length) {
-    const neighbours = await searchTech(env, {
-      query: `${origin.title}. ${origin.summary}`,
-      limit: limit + 1,
-    });
+    const neighbours = await searchTech(
+      env,
+      {
+        query: `${origin.title}. ${origin.summary}`,
+        limit: limit + 1,
+      },
+      { exa: false },
+    );
     documents = ((neighbours.data.documents as TechDocument[]) ?? []).filter(
       (document) => document.id !== id,
     );
@@ -263,8 +286,22 @@ export async function marketEvidence(
     return { summary: "No idea given.", mentionedIds: [], documents: [], data: { objections: [] } };
   }
 
-  const retrieved = await searchTech(env, { query: idea, limit });
-  const documents = (retrieved.data.documents as TechDocument[]) ?? [];
+  const retrieved = await searchTech(env, { query: idea, limit }, { exa: false });
+  const library = (retrieved.data.documents as TechDocument[]) ?? [];
+  const [papers, patents] = await Promise.all([
+    exaSearch(env, {
+      query: idea,
+      numResults: EXA_NUM_RESULTS,
+      category: EXA_PAPER_CATEGORY,
+      includeDomains: ["arxiv.org", "ntrs.nasa.gov"],
+    }),
+    exaSearch(env, {
+      query: idea,
+      numResults: EXA_NUM_RESULTS,
+      includeDomains: ["patents.google.com"],
+    }),
+  ]);
+  const documents = mergeDocuments(library, papers, patents).slice(0, limit);
 
   const debate = await runDebate(env, idea, documents);
 
@@ -381,6 +418,20 @@ export async function draftIdeaCard(
     console.warn("Gemma idea card failed", { error: String(error) });
     return fallback;
   }
+}
+
+function mergeDocuments(...groups: TechDocument[][]): TechDocument[] {
+  const seen = new Set<string>();
+  const merged: TechDocument[] = [];
+  for (const group of groups) {
+    for (const document of group) {
+      const key = (document.url || document.id).toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      merged.push(document);
+    }
+  }
+  return merged;
 }
 
 function stringArg(value: unknown): string {

@@ -13,6 +13,8 @@ export interface Env {
    */
   XAI_API_KEY?: string;
   GEMINI_API_KEY?: string;
+  /** Exa Search API. Unset skips live search and keeps D1/Vectorize. */
+  EXA_API_KEY?: string;
   VAPI_PUBLIC_KEY?: string;
   VAPI_PRIVATE_KEY?: string;
   VAPI_ASSISTANT_ID?: string;

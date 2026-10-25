@@ -315,17 +315,27 @@ export async function recordCitations(
   if (!sessionId || !docs.length) return [];
   await ensureSession(env, sessionId);
   const statement = env.DB.prepare(
-    `INSERT INTO citations (session_id, doc_id, url, title, stage)
-     VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO citations (session_id, doc_id, url, title, stage, source, type)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(session_id, doc_id) DO UPDATE SET
        url = excluded.url,
        title = excluded.title,
        stage = excluded.stage,
+       source = excluded.source,
+       type = excluded.type,
        ts = datetime('now')`,
   );
   await env.DB.batch(
     docs.map((document) =>
-      statement.bind(sessionId, document.id, document.url ?? "", document.title, stage),
+      statement.bind(
+        sessionId,
+        document.id,
+        document.url ?? "",
+        document.title,
+        stage,
+        document.source,
+        document.type,
+      ),
     ),
   );
   return docs.map((document) => ({
@@ -343,8 +353,8 @@ export async function getCitations(env: Env, sessionId: string): Promise<Citatio
     `SELECT c.doc_id AS doc_id,
             COALESCE(NULLIF(c.url, ''), d.url, '') AS url,
             COALESCE(NULLIF(c.title, ''), d.title, '') AS title,
-            COALESCE(d.source, '') AS source,
-            COALESCE(d.type, '') AS type,
+            COALESCE(NULLIF(d.source, ''), NULLIF(c.source, ''), '') AS source,
+            COALESCE(NULLIF(d.type, ''), NULLIF(c.type, ''), '') AS type,
             COALESCE(c.stage, '') AS stage
      FROM citations c
      LEFT JOIN documents d ON d.id = c.doc_id

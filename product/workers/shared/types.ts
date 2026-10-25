@@ -161,6 +161,10 @@ export function sourceLabel(source: string): string {
       return "Europe PMC";
     case "openalex":
       return "OpenAlex";
+    case "google_patents":
+      return "Google Patents";
+    case "exa":
+      return "Exa";
     default:
       return source;
   }

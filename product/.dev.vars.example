@@ -35,3 +35,6 @@ API_URL=http://localhost:8787
 # Optional data keys (ingest).
 NASA_API_KEY=
 OPENALEX_API_KEY=
+
+# Exa — live research search (server only). Empty keeps D1/Vectorize only.
+EXA_API_KEY=

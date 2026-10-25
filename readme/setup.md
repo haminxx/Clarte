@@ -101,7 +101,14 @@ npx wrangler secret put KEY_ENCRYPTION_KEY --config wrangler.api.toml
 
 # [needs key] GEMINI_API_KEY
 npx wrangler secret put GEMINI_API_KEY --config wrangler.api.toml
+
+# [needs key] EXA_API_KEY — live search (https://api.exa.ai/search). This is the only paid call.
+# Leave it unset to keep search on D1 and Vectorize. Do not commit the value.
+npx wrangler secret put EXA_API_KEY --config wrangler.api.toml
+npx wrangler secret put EXA_API_KEY --config wrangler.mcp.toml
 ```
+
+`EXA_API_KEY` lets `market_evidence` pull papers and patents from arXiv, Google Patents, and NASA NTRS, and lets `search_tech` fill in when Vectorize is thin or misses. Hits are cached in D1 (`exa_cache`, migration `0003_exa_cache.sql`) for one day. Apply migrations before relying on the cache.
 
 The MCP Worker needs `GEMINI_API_KEY`:
 
@@ -354,6 +361,7 @@ Until DNS is live, use the `clarte-mcp` `*.workers.dev` URL with path `/mcp`. Lo
 | Create the assistant from the script | `VAPI_PRIVATE_KEY` **[needs key]** on `npx tsx scripts/vapi-setup.ts` | Create the assistant in the Vapi dashboard instead. |
 | Gemma summaries, tags, objections, Imagine prompts | `GEMINI_API_KEY` | Deterministic summaries. Retrieval still returns real documents. |
 | Real semantic search | `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` during ingest | Stub vectors. Keyword search still answers. |
+| Live Exa research | `EXA_API_KEY` on `clarte-api` (and `clarte-mcp` if Cursor should search live) | D1 and Vectorize only. No Exa request is sent. |
 | Remote D1, Vectorize, deploys | `wrangler login` or a Cloudflare API token | Local D1 only. |
 | Google sign-in | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_SECRET` | Anonymous graph, voice, and citations still work. |
 | Grok Imagine | `IMAGINE_ENABLED=true`, a Google session, and a user xAI key encrypted with `KEY_ENCRYPTION_KEY` | Idea card shows sign-in / connect-a-key. Tool error is spoken, HTTP stays 200. |
