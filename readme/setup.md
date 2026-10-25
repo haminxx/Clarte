@@ -301,15 +301,14 @@ npm run build
 npx wrangler pages deploy out --project-name clarte-web
 ```
 
-That Pages command prints a `*.pages.dev` URL. Add it to `ALLOWED_ORIGINS` on the API Worker, then
-redeploy the API. The v3 CORS list is `https://clarte.io`, `http://localhost:3000`, and the Pages
-preview origin, with credentials. `www.clarte.io` redirects to the apex once DNS is live.
+The API allows credentialed browser calls from `https://clarte.io`, `https://www.clarte.io`,
+`https://clarte-web.pages.dev`, Pages preview hosts `https://<hash>.clarte-web.pages.dev`, and
+`http://localhost:3000`. Other `*.pages.dev` sites are refused. Preview hashes do not need a new
+`ALLOWED_ORIGINS` entry. `www.clarte.io` redirects to the apex once DNS is live.
 
 ```toml
 ALLOWED_ORIGINS = "http://localhost:3000,https://clarte.io,https://www.clarte.io,https://clarte-web.pages.dev"
 ```
-
-Replace `clarte-web.pages.dev` with the hostname the deploy printed if it differs.
 
 ### Custom domains, after the zone is active
 

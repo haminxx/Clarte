@@ -1,22 +1,35 @@
 import type { Env } from "./env";
 
+const STATIC_ORIGINS = [
+  "https://clarte.io",
+  "https://www.clarte.io",
+  "https://clarte-web.pages.dev",
+  "http://localhost:3000",
+];
+
+/** Production Pages host plus preview hosts such as https://<hash>.clarte-web.pages.dev. */
+function clartePagesOrigin(origin: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(origin);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:") return false;
+  const host = url.hostname;
+  return host === "clarte-web.pages.dev" || host.endsWith(".clarte-web.pages.dev");
+}
+
 function allowedOrigin(env: Env, request: Request): string | null {
   const origin = request.headers.get("origin");
   if (!origin) return null;
+  if (clartePagesOrigin(origin)) return origin;
   const allowed = new Set(
-    `${env.ALLOWED_ORIGINS ?? ""},https://clarte.io,http://localhost:3000`
-      .split(",")
+    [...STATIC_ORIGINS, ...(env.ALLOWED_ORIGINS ?? "").split(",")]
       .map((value) => value.trim())
-      .filter(Boolean),
+      .filter((value) => value && value !== "*"),
   );
-  if (allowed.has("*") || allowed.has(origin)) return origin;
-  try {
-    const url = new URL(origin);
-    if (url.protocol === "https:" && url.hostname.endsWith(".pages.dev")) return origin;
-  } catch {
-    return null;
-  }
-  return null;
+  return allowed.has(origin) ? origin : null;
 }
 
 export function corsHeaders(env: Env, request: Request): Record<string, string> {

@@ -28,7 +28,7 @@ IMAGINE_ENABLED = "false"
 APP_URL = "https://clarte.io"
 API_URL = "https://api.clarte.io"
 GOOGLE_REDIRECT_URI = "https://clarte.io/auth/callback/google"
-ALLOWED_ORIGINS = "http://localhost:3000,https://clarte.io,https://www.clarte.io"
+ALLOWED_ORIGINS = "http://localhost:3000,https://clarte.io,https://www.clarte.io,https://clarte-web.pages.dev"
 
 # The D1 database and Vectorize index were created before the product was renamed
 # from PABER to Clarte. Their names are resource identities, not branding, so they
