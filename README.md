@@ -1,5 +1,7 @@
 # Clarte
 
+**Live site:** https://clarte.io · **App:** https://clarte.io/app · **MLH submission:** https://www.mlh.com/events/hacktoberfest-x-spacexai-hack-day-uc-san-diego/submissions/01a175cd-aa45-14e3-22cb-654ba9bf8f47 · **Voice:** +1 858-348-9143
+
 **A voice brainstorming partner that asks the questions, and a library of real space technology to back up your answers.**
 
 You talk to Clarte on [clarte.io](https://clarte.io) or by phone. It does not hand you an answer. It walks you through four
@@ -10,6 +12,14 @@ Built in one day at **[Hacktoberfest Hack Day San Diego × SpaceXSI](https://www
 (UC San Diego, hosted by DS3, 2026-10-25), with Cursor.
 
 **Site:** https://clarte.io · **API:** https://api.clarte.io · **MCP:** https://mcp.clarte.io · **License:** MIT
+
+## Demo
+
+Open [https://clarte.io/app](https://clarte.io/app) and start a voice session, or call +1 858-348-9143. Demo video coming soon. The line-by-line script is [readme/demo-script.md](readme/demo-script.md).
+
+## Hackathon
+
+[Hacktoberfest x SpaceXAI Hack Day](https://www.mlh.com/events/hacktoberfest-x-spacexai-hack-day-uc-san-diego), UC San Diego, Oct 25 2026. Categories: SpaceXSI Make it Legendary, Best Use of Gemma 4, and Best Open-Source AI Project. How each one is met is in [readme/hackathon-requirements.md](readme/hackathon-requirements.md).
 
 ## Hackathon ideation
 
@@ -97,7 +107,7 @@ More detail with file links: [readme/hackathon-requirements.md](readme/hackathon
 - **Frontend:** Next.js 16, React 19, Tailwind CSS, `motion` (Framer Motion), `react-force-graph-3d` and three.js for the knowledge graph, components adapted from [21st.dev](https://21st.dev)
 - **Built with:** Cursor, Cursor cloud agents, Grok Bot
 
-## Repository layout
+## Project structure
 
 ```
 readme/     project docs: overview, architecture, setup, demo script, requirements, plan
@@ -105,6 +115,12 @@ product/    Cloudflare Workers (API + MCP), D1 migrations, ingest pipeline, prom
 website/    Next.js frontend: landing page, session screen, 3D graph, Vapi mic, idea card
 docs/       images used by this README
 ```
+
+## Quick start
+
+Env var names only. Copy [.env.example](.env.example) and fill it locally; do not commit values. Worker names are in [product/.dev.vars.example](product/.dev.vars.example). Public site names are in [website/.env.example](website/.env.example).
+
+`VAPI_PUBLIC_KEY`, `VAPI_ASSISTANT_ID`, `VAPI_PRIVATE_KEY`, `VAPI_SERVER_SECRET`, `XAI_API_KEY`, `IMAGINE_ENABLED`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `SESSION_SECRET`, `KEY_ENCRYPTION_KEY`, `GEMINI_API_KEY`, `GEMMA_MODEL`, `APP_URL`, `API_URL`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `NASA_API_KEY`, `OPENALEX_API_KEY`, `EXA_API_KEY`, `NEXT_PUBLIC_CLARTE_API`, `NEXT_PUBLIC_VAPI_PUBLIC_KEY`, `NEXT_PUBLIC_VAPI_ASSISTANT_ID`
 
 ## Run it
 
@@ -138,6 +154,10 @@ Code uses the bindings `DB`, `VECTORS`, and `AI`.
 | [readme/demo-script.md](readme/demo-script.md) | The demo, line by line |
 | [readme/hackathon-requirements.md](readme/hackathon-requirements.md) | Each requirement with file links |
 | [readme/PLAN.md](readme/PLAN.md) | Product plan and system design |
+
+## Team
+
+Christian Lee ([@haminxx](https://github.com/haminxx)).
 
 ## License and credits
 
